@@ -47,6 +47,14 @@ void app_init_hw(void)
     printf("* Name:%s\n\r", NAME);
     printf("**************************************************\n\r");
 
+    /* Initialize the buttons */
+    buttons_init_gpio();
+    buttons_init_timer();
+    printf("Buttons Initialized\n\r");
+
+    /* Initialize the LEDs */
+    leds_init_gpio();
+    printf("LEDs Initialized\n\r");
 }
 
 /*****************************************************************************/
@@ -58,13 +66,45 @@ void app_init_hw(void)
  */
 void app_main(void)
 {
-
     while(1)
     {
+        /* Read the state of each button */
+        button_state_t state_sw1 = buttons_get_state(BUTTON_SW1);
+        button_state_t state_sw2 = buttons_get_state(BUTTON_SW2);
+        button_state_t state_sw3 = buttons_get_state(BUTTON_SW3);
 
-        /* Sleep for 50mS */
-        cyhal_system_delay_ms(50);
+        /* SW1 - Red LED */
+        if (state_sw1 == BUTTON_STATE_FALLING_EDGE) {
+            printf("SW1 Falling Edge Detected\n\r");
+            leds_set_state(LED_RED, LED_STATE_ON);
+        }
+        else if (state_sw1 == BUTTON_STATE_RISING_EDGE) {
+            printf("SW1 Rising Edge Detected\n\r");
+            leds_set_state(LED_RED, LED_STATE_OFF);
+        }
 
+        /* SW2 - Green LED */
+        if (state_sw2 == BUTTON_STATE_FALLING_EDGE) {
+            printf("SW2 Falling Edge Detected\n\r");
+            leds_set_state(LED_GREEN, LED_STATE_ON);
+        }
+        else if (state_sw2 == BUTTON_STATE_RISING_EDGE) {
+            printf("SW2 Rising Edge Detected\n\r");
+            leds_set_state(LED_GREEN, LED_STATE_OFF);
+        }
+
+        /* SW3 - Blue LED */
+        if (state_sw3 == BUTTON_STATE_FALLING_EDGE) {
+            printf("SW3 Falling Edge Detected\n\r");
+            leds_set_state(LED_BLUE, LED_STATE_ON);
+        }
+        else if (state_sw3 == BUTTON_STATE_RISING_EDGE) {
+            printf("SW3 Rising Edge Detected\n\r");
+            leds_set_state(LED_BLUE, LED_STATE_OFF);
+        }
+
+        /* Sleep for 100mS */
+        cyhal_system_delay_ms(100);
     }
 }
 #endif
