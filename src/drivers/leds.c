@@ -40,13 +40,25 @@ cy_rslt_t leds_init_gpio(void) {
 void leds_set_state(ece353_led_t led, ece353_led_state_t state) {
     switch(led) {
         case LED_RED:
-            cyhal_gpio_write(PIN_LED_RED, state);
+            if (state) {
+                PORT_LED_RED->OUT |= MASK_LED_PIN_RED;
+            } else {
+                PORT_LED_RED->OUT &= ~MASK_LED_PIN_RED;
+            }
             break;
         case LED_GREEN:
-            cyhal_gpio_write(PIN_LED_GREEN, state);
+            if (state) {
+                PORT_LED_GREEN->OUT |= MASK_LED_PIN_GREEN;
+            } else {
+                PORT_LED_GREEN->OUT &= ~MASK_LED_PIN_GREEN;
+            }
             break;
         case LED_BLUE:
-            cyhal_gpio_write(PIN_LED_BLUE, state);
+            if (state) {
+                PORT_LED_BLUE->OUT |= MASK_LED_PIN_BLUE;
+            } else {
+                PORT_LED_BLUE->OUT &= ~MASK_LED_PIN_BLUE;
+            }
             break;
     }
 }

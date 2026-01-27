@@ -56,7 +56,7 @@ button_state_t buttons_get_state(ece353_button_t button) {
 
     switch(button) {
         case BUTTON_SW1:
-            current_state = cyhal_gpio_read(PIN_BUTTON_SW1) ? BUTTON_STATE_HIGH : BUTTON_STATE_LOW;
+            current_state = (PORT_BUTTON_SW1->IN & MASK_BUTTON_PIN_SW1) ? BUTTON_STATE_HIGH : BUTTON_STATE_LOW;
             if (prev_state_sw1 == BUTTON_STATE_HIGH && current_state == BUTTON_STATE_LOW) {
                 return_state = BUTTON_STATE_FALLING_EDGE;
             } else if (prev_state_sw1 == BUTTON_STATE_LOW && current_state == BUTTON_STATE_HIGH) {
@@ -68,7 +68,7 @@ button_state_t buttons_get_state(ece353_button_t button) {
             return return_state;
 
         case BUTTON_SW2:
-            current_state = cyhal_gpio_read(PIN_BUTTON_SW2) ? BUTTON_STATE_HIGH : BUTTON_STATE_LOW;
+            current_state = (PORT_BUTTON_SW2->IN & MASK_BUTTON_PIN_SW2) ? BUTTON_STATE_HIGH : BUTTON_STATE_LOW;
             if (prev_state_sw2 == BUTTON_STATE_HIGH && current_state == BUTTON_STATE_LOW) {
                 return_state = BUTTON_STATE_FALLING_EDGE;
             } else if (prev_state_sw2 == BUTTON_STATE_LOW && current_state == BUTTON_STATE_HIGH) {
@@ -80,7 +80,7 @@ button_state_t buttons_get_state(ece353_button_t button) {
             return return_state;
 
         case BUTTON_SW3:
-            current_state = cyhal_gpio_read(PIN_BUTTON_SW3) ? BUTTON_STATE_HIGH : BUTTON_STATE_LOW;
+            current_state = (PORT_BUTTON_SW3->IN & MASK_BUTTON_PIN_SW3) ? BUTTON_STATE_HIGH : BUTTON_STATE_LOW;
             if (prev_state_sw3 == BUTTON_STATE_HIGH && current_state == BUTTON_STATE_LOW) {
                 return_state = BUTTON_STATE_FALLING_EDGE;
             } else if (prev_state_sw3 == BUTTON_STATE_LOW && current_state == BUTTON_STATE_HIGH) {

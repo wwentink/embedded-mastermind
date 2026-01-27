@@ -1226,3 +1226,7 @@
 491	928	7912388641758348	build/ece353/Debug/mtb-example-ce240786-empty-app.elf	5281a46c8f603d3c
 62	441	7912388986059970	C:/Users/willw/ece353/ece353-s26-wwentink/build/Debug/local/src/drivers/leds.o	f1900b4015765bdf
 456	892	7912388990051730	build/ece353/Debug/mtb-example-ce240786-empty-app.elf	5281a46c8f603d3c
+70	471	7912391834448072	C:/Users/willw/ece353/ece353-s26-wwentink/build/Debug/local/src/drivers/leds.o	f1900b4015765bdf
+472	912	7912391838477237	build/ece353/Debug/mtb-example-ce240786-empty-app.elf	5281a46c8f603d3c
+69	554	7912393336276313	C:/Users/willw/ece353/ece353-s26-wwentink/build/Debug/local/src/drivers/buttons.o	44c4ea3ba4bac673
+557	995	7912393341140587	build/ece353/Debug/mtb-example-ce240786-empty-app.elf	5281a46c8f603d3c
