@@ -14,18 +14,6 @@
  /***************************************************************************/
  /* LEDs                                                                    */
  /***************************************************************************/
- #define PIN_BUTTON_SW1       P6_3
- #define PIN_BUTTON_SW2       P6_4
- #define PIN_BUTTON_SW3       P6_5
-
- #define PORT_BUTTON_SW1      GPIO_PRT6
- #define PORT_BUTTON_SW2      GPIO_PRT6
- #define PORT_BUTTON_SW3      GPIO_PRT6
-
- #define MASK_BUTTON_PIN_SW1      (1 << 3)
- #define MASK_BUTTON_PIN_SW2      (1 << 4)
- #define MASK_BUTTON_PIN_SW3      (1 << 5)
-
  #define PIN_LED_RED          P9_0
  #define PIN_LED_BLUE         P8_0
  #define PIN_LED_GREEN        P9_2
@@ -41,10 +29,42 @@
 /***************************************************************************/
 /* Buttons                                                                 */
 /***************************************************************************/
+ #define PIN_BUTTON_SW1       P6_3
+ #define PIN_BUTTON_SW2       P6_4
+ #define PIN_BUTTON_SW3       P6_5
+
+ #define PORT_BUTTON_SW1      GPIO_PRT6
+ #define PORT_BUTTON_SW2      GPIO_PRT6
+ #define PORT_BUTTON_SW3      GPIO_PRT6
+
+ #define MASK_BUTTON_PIN_SW1      (1 << 3)
+ #define MASK_BUTTON_PIN_SW2      (1 << 4)
+ #define MASK_BUTTON_PIN_SW3      (1 << 5)
 
 /***************************************************************************/
 /* LCD                                                                     */
 /***************************************************************************/
+#define PIN_LCD_D0          P2_0
+#define PIN_LCD_D1          P2_1
+#define PIN_LCD_D2          P2_2
+#define PIN_LCD_D3          P2_3
+#define PIN_LCD_D4          P2_4
+#define PIN_LCD_D5          P2_5
+#define PIN_LCD_D6          P2_6
+#define PIN_LCD_D7          P2_7
+
+#define PIN_LCD_CSX        P1_0
+#define PIN_LCD_DCX        P1_1
+#define PIN_LCD_WRX        P1_2
+
+#define MASK_LCD_CSX        (1 << 0)
+#define MASK_LCD_DCX        (1 << 1)
+#define MASK_LCD_WRX        (1 << 2)
+
+#define PORT_LCD_DATA      GPIO_PRT2
+#define PORT_LCD_CSX      GPIO_PRT1
+#define PORT_LCD_DCX      GPIO_PRT1
+#define PORT_LCD_WRX      GPIO_PRT1
 
 /***************************************************************************/
 /* BUZZER                                                                  */

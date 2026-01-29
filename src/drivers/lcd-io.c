@@ -20,6 +20,27 @@
 *******************************************************************************/
 __STATIC_INLINE void lcd_write_cmd_u8(uint8_t DL)
 {
+  // Set CSX pin low to select LCD
+  PORT_LCD_CSX->OUT_CLR = MASK_LCD_CSX;
+
+  // Set DCX pin low to indicate command
+  PORT_LCD_DCX->OUT_CLR = MASK_LCD_DCX;
+
+  // Write data to the data pins
+  PORT_LCD_DATA->OUT = DL;
+
+  // Set WRX pin low to indicate write
+  PORT_LCD_WRX->OUT_CLR = MASK_LCD_WRX;
+  
+  // Set WRX pin high to complete write
+  PORT_LCD_WRX->OUT_SET = MASK_LCD_WRX;
+
+  // Set DCX pin high to indicate we are done with command
+  PORT_LCD_DCX->OUT_SET = MASK_LCD_DCX;
+
+  // Set CSX pin high to de-select LCD
+  PORT_LCD_CSX->OUT_SET = MASK_LCD_CSX;
+
 }
 
 /*******************************************************************************
@@ -31,6 +52,20 @@ __STATIC_INLINE void lcd_write_cmd_u8(uint8_t DL)
 *******************************************************************************/
 __STATIC_INLINE void  lcd_write_data_u8 (uint8_t x)
 {
+  // Set CSX pin low to select LCD
+  PORT_LCD_CSX->OUT_CLR = MASK_LCD_CSX;
+
+  // Write data to the data pins
+  PORT_LCD_DATA->OUT = x;
+
+  // Set WRX pin low to indicate write
+  PORT_LCD_WRX->OUT_CLR = MASK_LCD_WRX;
+  
+  // Set WRX pin high to complete write
+  PORT_LCD_WRX->OUT_SET = MASK_LCD_WRX;
+
+  // Set CSX pin high to de-select LCD
+  PORT_LCD_CSX->OUT_SET = MASK_LCD_CSX;
 }
 
 /*******************************************************************************
@@ -43,6 +78,32 @@ __STATIC_INLINE void  lcd_write_data_u8 (uint8_t x)
 //write  data word
 __STATIC_INLINE void  lcd_write_data_u16(uint16_t y)
 {
+  uint8_t upper_byte = (y >> 8) & 0xFF;
+  uint8_t lower_byte = y & 0xFF;
+
+  // Set CSX pin low to select LCD
+  PORT_LCD_CSX->OUT_CLR = MASK_LCD_CSX;
+
+  // Write data to the data pins
+  PORT_LCD_DATA->OUT = upper_byte;
+
+  // Set WRX pin low to indicate write
+  PORT_LCD_WRX->OUT_CLR = MASK_LCD_WRX;
+  
+  // Set WRX pin high to complete write
+  PORT_LCD_WRX->OUT_SET = MASK_LCD_WRX;
+
+  // Write data to the data pins
+  PORT_LCD_DATA->OUT = lower_byte;
+
+  // Set WRX pin low to indicate write
+  PORT_LCD_WRX->OUT_CLR = MASK_LCD_WRX;
+  
+  // Set WRX pin high to complete write
+  PORT_LCD_WRX->OUT_SET = MASK_LCD_WRX;
+
+  // Set CSX pin high to de-select LCD
+  PORT_LCD_CSX->OUT_SET = MASK_LCD_CSX;
 }
 
 /*******************************************************************************
@@ -422,6 +483,23 @@ void lcd_config_screen(void)
 cy_rslt_t lcd_config_gpio(void)
 {
   cy_rslt_t rslt = CY_RSLT_SUCCESS;
+
+  /* Configure pins for LCD */
+  rslt = cyhal_gpio_init(PIN_LCD_CSX, CYHAL_GPIO_DIR_OUTPUT, CYHAL_GPIO_DRIVE_STRONG, 1);
+  if (rslt != CY_RSLT_SUCCESS) return rslt;
+
+  rslt = cyhal_gpio_init(PIN_LCD_DCX, CYHAL_GPIO_DIR_OUTPUT, CYHAL_GPIO_DRIVE_STRONG, 1);
+  if (rslt != CY_RSLT_SUCCESS) return rslt;
+
+  rslt = cyhal_gpio_init(PIN_LCD_WRX, CYHAL_GPIO_DIR_OUTPUT, CYHAL_GPIO_DRIVE_STRONG, 1);
+  if (rslt != CY_RSLT_SUCCESS) return rslt;
+
+  // Initialize data pins D0 - D7
+  for (uint8_t pin = 0; pin < 8; pin++)
+  {
+      cyhal_gpio_init(PIN_LCD_D0 + pin, CYHAL_GPIO_DIR_OUTPUT, CYHAL_GPIO_DRIVE_STRONG, 1);
+      if (rslt != CY_RSLT_SUCCESS) return rslt;
+  }
 
   return rslt;
 }
