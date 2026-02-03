@@ -43,12 +43,6 @@ cy_rslt_t buttons_init_gpio(void) {
     return result;
 }
 
-/* Initialize the timer for button debouncing */
-cy_rslt_t buttons_init_timer(void) {
-    // Implementation would go here
-    return CY_RSLT_SUCCESS;
-}
-
 /* Read the state of a specific button */
 button_state_t buttons_get_state(ece353_button_t button) {
     button_state_t current_state;
@@ -94,4 +88,53 @@ button_state_t buttons_get_state(ece353_button_t button) {
         default:
             return BUTTON_STATE_LOW;
     }
+}
+
+static cyhal_timer_t button_timer;
+static cyhal_timer_cfg_t button_timer_cfg;
+
+static void button_timer_handler(void *arg, cyhal_timer_event_t event) {
+    static uint8_t button_counts[3] = {0, 0, 0};
+
+    uint8_t sw1 = PORT_BUTTON_SW1->IN & MASK_BUTTON_PIN_SW1;
+    uint8_t sw2 = PORT_BUTTON_SW2->IN & MASK_BUTTON_PIN_SW2;
+    uint8_t sw3 = PORT_BUTTON_SW3->IN & MASK_BUTTON_PIN_SW3;
+
+    if (sw1 == 0) {
+        button_counts[0]++;
+
+        if (button_counts[0] == 5) {
+            ECE353_Events.sw1 = 1;
+        }
+    } else {
+        button_counts[0] = 0;
+    }
+
+    if (sw2 == 0) {
+        button_counts[1]++;
+
+        if (button_counts[1] == 5) {
+            ECE353_Events.sw2 = 1;
+            
+        }
+    } else {
+        button_counts[1] = 0;
+    }
+
+    if (sw3 == 0) {
+        button_counts[2]++;
+
+        if (button_counts[2] == 5) {
+            ECE353_Events.sw3 = 1;
+        }
+    } else {
+        button_counts[2] = 0;
+    }
+
+}
+
+/* Initialize the timer for button debouncing */
+cy_rslt_t buttons_init_timer(void) {
+ 
+    return timer_init(&button_timer, &button_timer_cfg, 500000, button_timer_handler); // Example tick value
 }
