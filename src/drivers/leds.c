@@ -10,6 +10,7 @@
  */
 
  #include "leds.h"
+#include "cyhal.h"
 
 /* Initialize the GPIO pins for the LEDs */
 cy_rslt_t leds_init_gpio(void) {
@@ -61,4 +62,40 @@ void leds_set_state(ece353_led_t led, ece353_led_state_t state) {
             }
             break;
     }
+}
+
+/* Configure the RGB LED pins to be controlled by PWM */
+cy_rslt_t leds_init_pwm(
+    cyhal_pwm_t *pwm_obj_red,
+    cyhal_pwm_t *pwm_obj_green,
+    cyhal_pwm_t *pwm_obj_blue
+) {
+    cy_rslt_t result = CY_RSLT_SUCCESS;
+    result = cyhal_pwm_init(
+        pwm_obj_red,
+        PIN_LED_RED,
+        NULL
+    );
+
+    if (result != CY_RSLT_SUCCESS) {
+        return result;
+    }
+
+    result = cyhal_pwm_init(
+        pwm_obj_green,
+        PIN_LED_GREEN,
+        NULL
+    );
+
+    if (result != CY_RSLT_SUCCESS) {
+        return result;
+    }
+
+    result = cyhal_pwm_init(
+        pwm_obj_blue,
+        PIN_LED_BLUE,
+        NULL
+    );
+
+    return result;
 }

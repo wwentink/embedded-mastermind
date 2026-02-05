@@ -15,6 +15,7 @@
 #include "cybsp.h"
 #include "cyhal_gpio.h"
 #include "ece353-pins.h"
+#include "cyhal_pwm.h"
 
 /* Enum for LED states */
 typedef enum {
@@ -34,6 +35,13 @@ cy_rslt_t leds_init_gpio(void);
 
 // Function to set the state of a specific LED
 void leds_set_state(ece353_led_t led, ece353_led_state_t state);
+
+// Function that configures the RGB LED pins to be controlled by PWM
+cy_rslt_t leds_init_pwm(
+    cyhal_pwm_t *pwm_obj_red,
+    cyhal_pwm_t *pwm_obj_green,
+    cyhal_pwm_t *pwm_obj_blue
+);
 
 
 #endif
