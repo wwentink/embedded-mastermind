@@ -3349,6 +3349,17 @@ const FONT_INFO Consolas_20ptFontInfo =
 	Consolas_20ptBitmaps, /*  Character bitmap array */
 };
 
+/* Font information for Consolas 20pt */
+const FONT_INFO LARGE_NUMBERS_FontInfo =
+{
+	39, /*  Character height */
+	0, /*  Start character */
+	9, /*  End character */
+	5, /*  Width of space character */
+	FONT_CHAR_INFO_LARGE_NUMBERS, /*  Character descriptor array */
+	FONT_NUM_LARGE_BITMAPS, /*  Character bitmap array */
+};
+
 /**
  * @brief 
  * Draws the current time on the LCD screen.
