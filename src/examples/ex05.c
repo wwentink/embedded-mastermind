@@ -23,12 +23,14 @@ char APP_DESCRIPTION[] = "ECE353: Example 05 - FreeRTOS Tasks";
 /*****************************************************************************/
 /* Global Variables                                                          */
 /*****************************************************************************/
-
+volatile bool buzzer_enable = false;
 /*****************************************************************************/
 /* Function Declarations                                                     */
 /*****************************************************************************/
 void task_button_sw1(void *arg);
+
 void task_button_sw2(void *arg);
+
 void task_buzzer(void *arg);
 
 /*****************************************************************************/
@@ -37,9 +39,28 @@ void task_buzzer(void *arg);
 void task_button_sw1(void *arg)
 {
     (void)arg; // Unused parameter
+    uint32_t button_count = 0;
+
+    printf("Button SW1 Task Started!\n");
     while(1)
     {
+        // check the button
+        if ((PORT_BUTTON_SW1->IN & MASK_BUTTON_PIN_SW1) == 0)
+        {
+            button_count++;
+            
+            if (button_count == 2)
+            {
+                printf("Button SW1 Pressed!\n");
+                buzzer_enable = true;
+            }
+        }
+        else {
+                button_count = 0;
+        }
 
+        // delay 15ms
+        vTaskDelay(pdMS_TO_TICKS(15));
     }
 }
 
@@ -47,8 +68,28 @@ void task_button_sw2(void *arg)
 {
     (void)arg; // Unused parameter
 
-    while (1)
+    uint32_t button_count = 0;
+
+    printf("Button SW2 Task Started!\n");
+    while(1)
     {
+        // check the button
+        if ((PORT_BUTTON_SW2->IN & MASK_BUTTON_PIN_SW2) == 0)
+        {
+            button_count++;
+            
+            if (button_count == 2)
+            {
+                printf("Button SW2 Pressed!\n");
+                buzzer_enable = false;
+            }
+        }
+        else {
+                button_count = 0;
+        }
+
+            // delay 15ms
+            vTaskDelay(pdMS_TO_TICKS(15));
     }
 }
 
@@ -56,8 +97,21 @@ void task_buzzer(void *arg)
 {
     (void)arg; // Unused parameter
 
+    printf("Buzzer Task Started!\n");
     while (1)
     {
+        vTaskDelay(pdMS_TO_TICKS(100));
+
+        if (buzzer_enable)
+        {
+            printf("Buzzer ON!\n");
+            buzzer_on();
+        }
+        else
+        {
+            printf("Buzzer OFF!\n");
+            buzzer_off();
+        }
     }
 }
 
@@ -79,8 +133,10 @@ void app_init_hw(void)
     printf("**************************************************\n\r");
 
     /* Initialize the buttons */
+    buttons_init_gpio();
 
     /* Initialize the buzzer */
+    buzzer_init(100, 2000);
 }
 
 /*****************************************************************************/
@@ -93,8 +149,28 @@ void app_init_hw(void)
 void app_main(void)
 {
     /* Register the tasks with FreeRTOS*/
+    xTaskCreate(
+        task_button_sw1,            // Function used to implement a task
+        "Button SW1 Task",          // Task name
+        configMINIMAL_STACK_SIZE,   // Stack size
+        NULL,                       // Not using any params so pass null
+        tskIDLE_PRIORITY + 1,       // Task Priority
+        NULL);                      // Task Handle
+    xTaskCreate(task_button_sw2, 
+        "Button SW2 Task",          
+        configMINIMAL_STACK_SIZE, 
+        NULL, 
+        2, 
+        NULL);
+    xTaskCreate(task_buzzer, 
+        "Buzzer Task", 
+        configMINIMAL_STACK_SIZE, 
+        NULL, 
+        1, 
+        NULL);
 
     /* Start the scheduler*/
+    vTaskStartScheduler();
 
     /* Will never reach this loop once the scheduler starts */
     while (1)
