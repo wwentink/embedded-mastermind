@@ -9,43 +9,36 @@
  * 
  */
 #include "buzzer.h"
-#include "timer.h"
 
-static cyhal_timer_t buzzer_timer;
-static cyhal_timer_cfg_t buzzer_timer_cfg;
-
-static void buzzer_timer_handler(void *handler_arg, cyhal_timer_event_t event)
-{
-    PORT_BUZZER->OUT_INV = MASK_BUZZER;
-}
+static cyhal_pwm_t buzzer_pwm;
 
 cy_rslt_t buzzer_init(float duty_cycle, uint32_t frequency)
 {
     cy_rslt_t rslt;
     
-    // Initialize buzzer GPIO as output
-    rslt = cyhal_gpio_init(PIN_BUZZER, CYHAL_GPIO_DIR_OUTPUT, CYHAL_GPIO_DRIVE_STRONG, 0);
+    // Initialize buzzer PWM
+    rslt = cyhal_pwm_init(&buzzer_pwm, PIN_BUZZER, NULL);
     if (rslt != CY_RSLT_SUCCESS)
     {
         return rslt;
     }
     
-    // Calculate timer tick count (frequency is divided by 2 for toggle behavior)
-    uint32_t tick_count = (100000000 / frequency) / 2;
-    
-    // Initialize timer
-    rslt = timer_init(&buzzer_timer, &buzzer_timer_cfg, tick_count, buzzer_timer_handler);
+    // Set duty cycle and frequency
+    rslt = cyhal_pwm_set_duty_cycle(&buzzer_pwm, duty_cycle, frequency);
+    if (rslt != CY_RSLT_SUCCESS)
+    {
+        return rslt;
+    }
     
     return rslt;
 }
 
 void buzzer_on(void)
 {
-    cyhal_timer_start(&buzzer_timer);
+    cyhal_pwm_start(&buzzer_pwm);
 }
 
 void buzzer_off(void)
 {
-    cyhal_timer_stop(&buzzer_timer);
-    cyhal_gpio_write(PIN_BUZZER, 0);
+    cyhal_pwm_stop(&buzzer_pwm);
 }
