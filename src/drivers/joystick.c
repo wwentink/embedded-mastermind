@@ -109,6 +109,43 @@ joystick_position_t joystick_get_pos(void)
     uint16_t y_val;
     joystick_position_t position = JOYSTICK_POS_CENTER;
     
-    /* ADD CODE */
+    x_val = joystick_read_x();
+    y_val = joystick_read_y();
+    
+    // Check diagonals first
+    if(x_val > JOYSTICK_THRESH_X_LEFT && y_val > JOYSTICK_THRESH_Y_UP)
+    {
+        position = JOYSTICK_POS_UPPER_LEFT;
+    }
+    else if(x_val > JOYSTICK_THRESH_X_LEFT && y_val < JOYSTICK_THRESH_Y_DOWN)
+    {
+        position = JOYSTICK_POS_LOWER_LEFT;
+    }
+    else if(x_val < JOYSTICK_THRESH_X_RIGHT && y_val > JOYSTICK_THRESH_Y_UP)
+    {
+        position = JOYSTICK_POS_UPPER_RIGHT;
+    }
+    else if(x_val < JOYSTICK_THRESH_X_RIGHT && y_val < JOYSTICK_THRESH_Y_DOWN)
+    {
+        position = JOYSTICK_POS_LOWER_RIGHT;
+    }
+    // Check single directions
+    else if(x_val > JOYSTICK_THRESH_X_LEFT)
+    {
+        position = JOYSTICK_POS_LEFT;
+    }
+    else if(x_val < JOYSTICK_THRESH_X_RIGHT)
+    {
+        position = JOYSTICK_POS_RIGHT;
+    }
+    else if(y_val < JOYSTICK_THRESH_Y_DOWN)
+    {
+        position = JOYSTICK_POS_DOWN;
+    }
+    else if(y_val > JOYSTICK_THRESH_Y_UP)
+    {
+        position = JOYSTICK_POS_UP;
+    }
+
     return position;
 }

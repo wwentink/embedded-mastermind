@@ -39,19 +39,26 @@ const char * const joystick_pos_names[] = {
 {
     (void)arg; // Unused parameter
 
-    uint16_t x_value, y_value;
+    joystick_position_t position;
+    joystick_position_t previous_position = JOYSTICK_POS_CENTER;
 
     while(1)
     {
-        vTaskDelay(pdMS_TO_TICKS(500)); // Delay to allow other tasks to initialize
-        
-        x_value = joystick_read_x();
-        y_value = joystick_read_y();
+        vTaskDelay(pdMS_TO_TICKS(500)); // Check joystick position every 500 ms
 
-        float x_voltage = (x_value / 65535.0) * 3.3; // Convert to voltage
-        float y_voltage = (y_value / 65535.0) * 3.3; // Convert to voltage
+        position = joystick_get_pos();
 
-        printf("Joystick X: %u (%.2f V), Y: %u (%.2f V)\n", x_value, x_voltage, y_value, y_voltage);
+        // Only add to queue if position has changed
+        if(position != previous_position)
+        {
+            printf("Joystick Position: %s\n", joystick_pos_names[position]);
+            
+            // Send position to queue
+            xQueueOverwrite(Queue_Joystick, &position);
+            
+            // Update previous position
+            previous_position = position;
+        }
     }
 }
 
@@ -59,8 +66,13 @@ const char * const joystick_pos_names[] = {
 bool task_joystick_init(void)
 {
     /* Create the Queue used to send Joystick Positions*/
+    // Initialize queue to size 1 and hold joystick_position_t values
+    Queue_Joystick = xQueueCreate(1, sizeof(joystick_position_t));
 
     /* Create the joystick task */
+    // Register task_joystick with FreeRTOS
+    xTaskCreate(task_joystick, "Joystick Task", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL);
+        
     
     return true;
 }

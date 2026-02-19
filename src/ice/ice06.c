@@ -65,7 +65,13 @@ void app_init_hw(void)
 
 void task_print_directions(void *arg)
 {
-
+    // Wait indefinitely for joystick positions to be recieved from the queue
+    joystick_position_t position;
+    while(1)
+    {
+        xQueueReceive(Queue_Joystick, &position, portMAX_DELAY);
+        printf("Joystick Position Changed: %s\n\r", Joystick_Pos_Strings[position]);
+    }
 }
 
 /*****************************************************************************/
@@ -78,8 +84,11 @@ void task_print_directions(void *arg)
 void app_main(void)
 {
     /* Initialize joystick resources */
+    joystick_init();
     
     /* Register the tasks with FreeRTOS*/
+    task_joystick_init();
+    xTaskCreate(task_print_directions, "Print Directions Task", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL);
 
     /* Start the scheduler*/
     vTaskStartScheduler();
