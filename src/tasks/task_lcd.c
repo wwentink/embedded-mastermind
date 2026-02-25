@@ -10,6 +10,8 @@
  */
 
  #include "task_lcd.h"
+#include "drivers.h"
+#include "master_mind_lib.h"
 
 #if defined(ECE353_FREERTOS)
 
@@ -22,11 +24,70 @@ void task_lcd(void *pvParameters)
     (void)pvParameters; // Unused parameter
 
     lcd_msg_request_t lcd_request;
-    lcd_msg_response_t response;
-    bool status = false;
 
     while(1)
     {
+        // Wait for a message from the queue
+        if (xQueueReceive(Queue_Requests, &lcd_request, portMAX_DELAY))
+        {
+            // Process the message based on command type
+            switch(lcd_request.msg.command)
+            {
+                case LCD_CMD_CLEAR_SCREEN:
+                    lcd_clear_screen(LCD_COLOR_BLACK);
+                    break;
+                    
+                case LCD_CMD_PRINT_MESSAGE:
+                {
+                    // Print the message to the LCD using font drawing
+                    const char* str = lcd_request.msg.payload.message;
+                    int cx = 5;  // Left margin
+                    int cy = Consolas_20ptFontInfo.height / 2 + 10;  // Top margin
+                    
+                    // Draw each character
+                    for (int i = 0; str[i] != '\0'; i++)
+                    {
+                        char c = str[i];
+                        
+                        // Handle space and printable characters
+                        if (c == ' ')
+                        {
+                            cx += Consolas_20ptFontInfo.space_width;
+                        }
+                        else if (c >= Consolas_20ptFontInfo.start_char && c <= Consolas_20ptFontInfo.end_char)
+                        {
+                            int char_index = c - Consolas_20ptFontInfo.start_char;
+                            int char_width = Consolas_20ptFontInfo.char_info[char_index].width;
+                            
+                            lcd_draw_image(
+                                cx + char_width / 2,
+                                cy,
+                                char_width,
+                                Consolas_20ptFontInfo.height,
+                                Consolas_20ptBitmaps + Consolas_20ptFontInfo.char_info[char_index].offset,
+                                LCD_COLOR_WHITE,
+                                LCD_COLOR_BLACK,
+                                true
+                            );
+                            
+                            cx += char_width;
+                        }
+                    }
+                    break;
+                }
+                    
+                case LCD_CMD_DRAW_TILE:
+                    // TODO: Draw a tile on the LCD
+                    break;
+                    
+                case LCD_CMD_DRAW_TILE_INVERTED:
+                    // TODO: Draw an inverted tile on the LCD
+                    break;
+                    
+                default:
+                    break;
+            }
+        }
     }
 }
 

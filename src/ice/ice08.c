@@ -26,6 +26,9 @@ char APP_DESCRIPTION[] = "ECE353: ICE 08 - FreeRTOS LCD Gatekeeper";
 /*****************************************************************************/
 /* Global Variables                                                          */
 /*****************************************************************************/
+/* ADD CODE */
+/* FreeRTOS Queue for LCD messages */
+QueueHandle_t Queue_LCD_Request = NULL;
 
 /*****************************************************************************/
 /* Function Declarations                                                     */
@@ -34,14 +37,31 @@ char APP_DESCRIPTION[] = "ECE353: ICE 08 - FreeRTOS LCD Gatekeeper";
 /*****************************************************************************/
 /* Function Definitions                                                      */
 /*****************************************************************************/
-void task_system_control(void *pvParameters)
+void task_sw1(void *pvParameters)
 {
     (void)pvParameters; // Unused parameter
 
+    printf("Starting Task SW1\n\r");
     while(1)
     {
-        // Sleep for 100 ms
-        vTaskDelay(pdMS_TO_TICKS(100));
+        // Sleep for 25 ms
+        vTaskDelay(pdMS_TO_TICKS(25));
+
+        /* ADD CODE */
+    }
+}
+
+void task_sw2(void *pvParameters)
+{
+    (void)pvParameters; // Unused parameter
+
+    printf("Starting Task SW2\n\r");
+    while(1)
+    {
+        // Sleep for 25 ms
+        vTaskDelay(pdMS_TO_TICKS(25));
+
+        /* ADD CODE */
     }
 }
 
@@ -69,6 +89,15 @@ void app_init_hw(void)
         for(int i = 0; i < 100000; i++) {}
         CY_ASSERT(0);
     }
+
+    rslt = buttons_init_gpio();
+    if (rslt != CY_RSLT_SUCCESS)
+    {
+        printf("Buttons initialization failed!\n\r");
+        for(int i = 0; i < 100000; i++) {}
+        CY_ASSERT(0);
+    }
+
 }
 
 /*****************************************************************************/
@@ -85,28 +114,25 @@ void app_main(void)
 
     ECE353_RTOS_Events = xEventGroupCreate();
 
-    /* Initialize LCD resources */
-    if (!task_lcd_init())
-    {
-        printf("Failed to initialize joystick task\n\r");
-        for(int i = 0; i < 100000; i++) {}
-       CY_ASSERT(0); // If the task initialization fails, assert
-    }
+    /* Create the LCD Request Queue*/
+    /* ADD CODE */
 
-    /* Start the buttons task*/
+    /* Initialize the LCD task */
+    /* ADD CODE */
+
     xTaskCreate(
-        task_buttons, 
-        "Task Buttons", 
-        configMINIMAL_STACK_SIZE, 
+        task_sw1, 
+        "Task SW1", 
+        configMINIMAL_STACK_SIZE*2, 
         NULL, 
         tskIDLE_PRIORITY + 1, 
         NULL
     );
 
     xTaskCreate(
-        task_system_control, 
-        "Task System Control", 
-        configMINIMAL_STACK_SIZE*5, 
+        task_sw2, 
+        "Task SW2", 
+        configMINIMAL_STACK_SIZE*2, 
         NULL, 
         tskIDLE_PRIORITY + 1, 
         NULL

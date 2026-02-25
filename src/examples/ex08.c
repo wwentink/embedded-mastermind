@@ -26,6 +26,12 @@ char APP_DESCRIPTION[] = "ECE353: Example 08 - FreeRTOS LCD Gatekeeper";
 /*****************************************************************************/
 /* Global Variables                                                          */
 /*****************************************************************************/
+EventGroupHandle_t ECE353_RTOS_Events;
+QueueHandle_t xQueue_Request_LCD;
+
+uint16_t sw1_presses = 0;
+uint16_t sw2_presses = 0;
+uint16_t sw3_presses = 0;
 
 /*****************************************************************************/
 /* Function Declarations                                                     */
@@ -38,26 +44,54 @@ void task_system_control(void *pvParameters)
 {
     (void)pvParameters; // Unused parameter
 
-    int8_t row = 0;
-    int8_t col = 0;
-    int8_t button_presses = 0;
     EventBits_t events;
     
     lcd_msg_t lcd_msg;
+    lcd_msg_request_t lcd_request;
     
     // Clear the screen
-
-    // Request 20 bytes to store a string
-
-    // Print the number of button presses to the LCD
+    lcd_msg.command = LCD_CMD_CLEAR_SCREEN;
+    lcd_request.msg = lcd_msg;
+    lcd_request.return_queue = NULL;
+    xQueueSend(xQueue_Request_LCD, &lcd_request, portMAX_DELAY);
 
     while(1)
     {
-        // Wait for SW1 events
+        // Wait for any button events (SW1, SW2, or SW3)
+        events = xEventGroupWaitBits(
+            ECE353_RTOS_Events, 
+            ECE353_EVENT_SW1_PRESSED | ECE353_EVENT_SW2_PRESSED | ECE353_EVENT_SW3_PRESSED,
+            pdTRUE,  // Clear bits after wait
+            pdFALSE, // Don't require all bits
+            portMAX_DELAY
+        );
         
-        // Update the button press count
-    
-        // Print the number of button presses to the LCD
+        // Update counts based on which buttons were pressed
+        if (events & ECE353_EVENT_SW1_PRESSED)
+        {
+            sw1_presses++;
+        }
+        if (events & ECE353_EVENT_SW2_PRESSED)
+        {
+            sw2_presses++;
+        }
+        if (events & ECE353_EVENT_SW3_PRESSED)
+        {
+            sw3_presses++;
+        }
+
+        // Clear the screen before printing new counts
+        lcd_msg.command = LCD_CMD_CLEAR_SCREEN;
+        lcd_request.msg = lcd_msg;
+        lcd_request.return_queue = NULL;
+        xQueueSend(xQueue_Request_LCD, &lcd_request, portMAX_DELAY);
+        
+        // Print the button press counts to the LCD
+        lcd_msg.command = LCD_CMD_PRINT_MESSAGE;
+        sprintf(lcd_msg.payload.message, "SW1:%u SW2:%u SW3:%u", sw1_presses, sw2_presses, sw3_presses);
+        lcd_request.msg = lcd_msg;
+        lcd_request.return_queue = NULL;
+        xQueueSend(xQueue_Request_LCD, &lcd_request, portMAX_DELAY);
     }
 }
 
@@ -109,6 +143,15 @@ void app_main(void)
 
     ECE353_RTOS_Events = xEventGroupCreate();
 
+    /* Create the LCD Queue */
+    xQueue_Request_LCD = xQueueCreate(10, sizeof(lcd_msg_request_t));
+    if (xQueue_Request_LCD == NULL)
+    {
+        printf("Failed to create LCD queue\n\r");
+        for(int i = 0; i < 100000; i++) {}
+        CY_ASSERT(0);
+    }
+
     /* Initialize the Button Task resources */
     if (!task_button_init())
     {
@@ -118,7 +161,7 @@ void app_main(void)
     }
 
     /* Initialize LCD resources */
-    if (!task_lcd_init())
+    if (!task_lcd_resources_init(xQueue_Request_LCD))
     {
         printf("Failed to initialize lcd task\n\r");
         for(int i = 0; i < 100000; i++) {}
