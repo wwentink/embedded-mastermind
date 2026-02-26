@@ -167,6 +167,92 @@ bool master_mind_handle_msg(lcd_msg_t* msg)
         case LCD_CMD_CLEAR_SCREEN:
             lcd_clear_screen(LCD_COLOR_BLACK);
             return true;
+        
+        // Print SW1 count at position (10, 50)
+        case LCD_CMD_PRINT_SW1_COUNT:
+        {
+            const char* str = msg->payload.message;
+            int cx = 10;  // Starting X position
+            int cy = 50;  // Starting Y position
+            
+            // Draw each character
+            for (int i = 0; str[i] != '\0'; i++)
+            {
+                char c = str[i];
+                
+                // Handle space and printable characters
+                if (c == ' ')
+                {
+                    cx += Consolas_20ptFontInfo.space_width;
+                }
+                else if (c >= Consolas_20ptFontInfo.start_char && c <= Consolas_20ptFontInfo.end_char)
+                {
+                    // Get character index and width
+                    int char_index = c - Consolas_20ptFontInfo.start_char;
+                    int char_width = Consolas_20ptFontInfo.char_info[char_index].width;
+                    
+                    // Draw the character
+                    lcd_draw_image(
+                        cx + char_width / 2,
+                        cy,
+                        char_width,
+                        Consolas_20ptFontInfo.height,
+                        Consolas_20ptBitmaps + Consolas_20ptFontInfo.char_info[char_index].offset,
+                        LCD_COLOR_WHITE,
+                        LCD_COLOR_BLACK,
+                        true
+                    );
+                    
+                    // Advance x position
+                    cx += char_width;
+                }
+            }
+            
+            return true;
+        }
+        
+        // Print SW2 count at position (10, 100)
+        case LCD_CMD_PRINT_SW2_COUNT:
+        {
+            const char* str = msg->payload.message;
+            int cx = 10;  // Starting X position
+            int cy = 100; // Starting Y position
+            
+            // Draw each character
+            for (int i = 0; str[i] != '\0'; i++)
+            {
+                char c = str[i];
+                
+                // Handle space and printable characters
+                if (c == ' ')
+                {
+                    cx += Consolas_20ptFontInfo.space_width;
+                }
+                else if (c >= Consolas_20ptFontInfo.start_char && c <= Consolas_20ptFontInfo.end_char)
+                {
+                    // Get character index and width
+                    int char_index = c - Consolas_20ptFontInfo.start_char;
+                    int char_width = Consolas_20ptFontInfo.char_info[char_index].width;
+                    
+                    // Draw the character
+                    lcd_draw_image(
+                        cx + char_width / 2,
+                        cy,
+                        char_width,
+                        Consolas_20ptFontInfo.height,
+                        Consolas_20ptBitmaps + Consolas_20ptFontInfo.char_info[char_index].offset,
+                        LCD_COLOR_WHITE,
+                        LCD_COLOR_BLACK,
+                        true
+                    );
+                    
+                    // Advance x position
+                    cx += char_width;
+                }
+            }
+            
+            return true;
+        }
             
         default:
             return false;

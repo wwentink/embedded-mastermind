@@ -26,7 +26,9 @@ char APP_DESCRIPTION[] = "ECE353: ICE 08 - FreeRTOS LCD Gatekeeper";
 /*****************************************************************************/
 /* Global Variables                                                          */
 /*****************************************************************************/
-/* ADD CODE */
+EventGroupHandle_t ECE353_RTOS_Events;
+uint16_t sw1_presses = 0;
+uint16_t sw2_presses = 0;
 /* FreeRTOS Queue for LCD messages */
 QueueHandle_t Queue_LCD_Request = NULL;
 
@@ -44,10 +46,32 @@ void task_sw1(void *pvParameters)
     printf("Starting Task SW1\n\r");
     while(1)
     {
-        // Sleep for 25 ms
-        vTaskDelay(pdMS_TO_TICKS(25));
+        xEventGroupWaitBits(
+            ECE353_RTOS_Events,
+            ECE353_EVENT_SW1_PRESSED,
+            pdTRUE,
+            pdTRUE,
+            portMAX_DELAY
+        );
 
-        /* ADD CODE */
+        // Wait 1 second to verify button is held
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        
+        // Check if button is still pressed
+        if (cyhal_gpio_read(PIN_BUTTON_SW1) == 0)
+        {
+            sw1_presses++;
+
+            lcd_msg_t msg;
+            lcd_msg_request_t lcd_request;
+            msg.command = LCD_CMD_PRINT_SW1_COUNT;
+            snprintf(msg.payload.message, sizeof(msg.payload.message), "SW1: %d", sw1_presses);
+
+            lcd_request.msg = msg;
+            lcd_request.return_queue = NULL;
+
+            xQueueSend(Queue_LCD_Request, &lcd_request, portMAX_DELAY);
+        }
     }
 }
 
@@ -58,10 +82,32 @@ void task_sw2(void *pvParameters)
     printf("Starting Task SW2\n\r");
     while(1)
     {
-        // Sleep for 25 ms
-        vTaskDelay(pdMS_TO_TICKS(25));
+        xEventGroupWaitBits(
+            ECE353_RTOS_Events,
+            ECE353_EVENT_SW2_PRESSED,
+            pdTRUE,
+            pdTRUE,
+            portMAX_DELAY
+        );
 
-        /* ADD CODE */
+        // Wait 1 second to verify button is held
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        
+        // Check if button is still pressed
+        if (cyhal_gpio_read(PIN_BUTTON_SW2) == 0)
+        {
+            sw2_presses++;
+
+            lcd_msg_t msg;
+            lcd_msg_request_t lcd_request;
+            msg.command = LCD_CMD_PRINT_SW2_COUNT;
+            snprintf(msg.payload.message, sizeof(msg.payload.message), "SW2: %d", sw2_presses);
+
+            lcd_request.msg = msg;
+            lcd_request.return_queue = NULL;
+
+            xQueueSend(Queue_LCD_Request, &lcd_request, portMAX_DELAY);
+        }
     }
 }
 
@@ -115,10 +161,17 @@ void app_main(void)
     ECE353_RTOS_Events = xEventGroupCreate();
 
     /* Create the LCD Request Queue*/
-    /* ADD CODE */
+    Queue_LCD_Request = xQueueCreate(10, sizeof(lcd_msg_request_t));
 
     /* Initialize the LCD task */
-    /* ADD CODE */
+    task_lcd_resources_init(Queue_LCD_Request);
+
+    if (!task_button_init())
+    {
+        printf("Failed to initialize button task\n\r");
+        for(int i = 0; i < 100000; i++) {}
+        CY_ASSERT(0);
+    }
 
     xTaskCreate(
         task_sw1, 

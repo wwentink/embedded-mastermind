@@ -28,10 +28,18 @@
  {
     (void)arg; // Unused parameter
 
+    uint8_t sw1_prev = 1;
+    uint8_t sw2_prev = 1;
+    uint8_t sw3_prev = 1;
+
     while (1)
     {
-        // Detect falling of SW1 with 30 mS debounce
-        if (cyhal_gpio_read(PIN_BUTTON_SW1) == 0)
+        uint8_t sw1_now = cyhal_gpio_read(PIN_BUTTON_SW1);
+        uint8_t sw2_now = cyhal_gpio_read(PIN_BUTTON_SW2);
+        uint8_t sw3_now = cyhal_gpio_read(PIN_BUTTON_SW3);
+
+        // Detect falling edge of SW1 with 30 mS debounce
+        if ((sw1_prev == 1) && (sw1_now == 0))
         {
             vTaskDelay(pdMS_TO_TICKS(30)); // Debounce delay
             if (cyhal_gpio_read(PIN_BUTTON_SW1) == 0)
@@ -40,10 +48,9 @@
                 xEventGroupSetBits(ECE353_RTOS_Events, ECE353_EVENT_SW1_PRESSED);
             }
         }
-        
 
-        // Monitor button SW2
-        if (cyhal_gpio_read(PIN_BUTTON_SW2) == 0)
+        // Detect falling edge of SW2 with 30 mS debounce
+        if ((sw2_prev == 1) && (sw2_now == 0))
         {
             vTaskDelay(pdMS_TO_TICKS(30)); // Debounce delay
             if (cyhal_gpio_read(PIN_BUTTON_SW2) == 0)
@@ -55,7 +62,7 @@
 
 
         // Monitor button SW3
-        if (cyhal_gpio_read(PIN_BUTTON_SW3) == 0)
+        if ((sw3_prev == 1) && (sw3_now == 0))
         {
             vTaskDelay(pdMS_TO_TICKS(30)); // Debounce delay
             if (cyhal_gpio_read(PIN_BUTTON_SW3) == 0)
@@ -64,9 +71,14 @@
                 xEventGroupSetBits(ECE353_RTOS_Events, ECE353_EVENT_SW3_PRESSED);
             }
         }
+
+        sw1_prev = sw1_now;
+        sw2_prev = sw2_now;
+        sw3_prev = sw3_now;
   
 
         // Debounce delay
+        vTaskDelay(pdMS_TO_TICKS(15));
     }
  }
 
