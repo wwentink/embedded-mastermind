@@ -14,6 +14,7 @@
 #include "drivers.h"
 #include "task_console.h"
 #include "cyhal_uart.h"
+#include <string.h>
 /**
  * @brief
  * This file contains the implementation of the console receive (Rx) task.
@@ -21,7 +22,7 @@
  * controlling the state of the LEDs accordingly.
  * 
  * The task uses a double buffer to process the incoming console commands.
- * The supported commands will be "RED_ON" and "RED_OFF" to control the red LED.
+ * The supported commands will be "RED ON" and "RED OFF" to control the red LED.
  */
 
 /* ADD CODE */
@@ -51,16 +52,26 @@ void task_console_rx(void *param)
     (void)param; // Unused parameter
     while (1)
     {
-        /* ADD CODE */
         // Wait indefinitely for a Task Notification
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
         // Process the data pointed to by the console buffer pointer
-
-        // If "RED_ON", turn on the red led
-
-        // If "RED_OFF", turn off the red led
+        if (strcmp(consume_console_buffer->data, "RED ON") == 0)
+        {
+            // Turn on the red LED
+            cyhal_gpio_write(PIN_LED_RED, LED_STATE_ON);
+        }
+        else if (strcmp(consume_console_buffer->data, "RED OFF") == 0)
+        {
+            // Turn off the red LED
+            cyhal_gpio_write(PIN_LED_RED, LED_STATE_OFF);
+        }
 
         // All the other commands are ignored
+        else
+        {
+            // Do nothing
+        }
         
     }
 }
@@ -75,10 +86,14 @@ bool task_console_resources_init_rx(void)
 {
     BaseType_t rslt;
 
-    /* ADD CODE */
     // Allocate an array of data from the heap for the console buffers
     console_buffer1.data = (char *)pvPortMalloc(CONSOLE_MAX_MESSAGE_LENGTH);
     console_buffer2.data = (char *)pvPortMalloc(CONSOLE_MAX_MESSAGE_LENGTH);
+
+    if ((console_buffer1.data == NULL) || (console_buffer2.data == NULL))
+    {
+        return false;
+    }
 
     // Initialize the produce and consume buffers
     produce_console_buffer = &console_buffer1;
