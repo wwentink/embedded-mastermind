@@ -26,6 +26,15 @@
 
 /* ADD CODE */
 /* Global Variables */
+console_buffer_t console_buffer1; // Double buffer for console input
+console_buffer_t console_buffer2; // Double buffer for console input
+
+// Allocate pointers for the double buffer
+console_buffer_t *produce_console_buffer;
+console_buffer_t *consume_console_buffer;
+
+// Allocate a task handler
+TaskHandle_t TaskHandle_Console_Rx;
 
 /**
  * @brief
@@ -43,6 +52,16 @@ void task_console_rx(void *param)
     while (1)
     {
         /* ADD CODE */
+        // Wait indefinitely for a Task Notification
+
+        // Process the data pointed to by the console buffer pointer
+
+        // If "RED_ON", turn on the red led
+
+        // If "RED_OFF", turn off the red led
+
+        // All the other commands are ignored
+        
     }
 }
 
@@ -57,6 +76,27 @@ bool task_console_resources_init_rx(void)
     BaseType_t rslt;
 
     /* ADD CODE */
+    // Allocate an array of data from the heap for the console buffers
+    console_buffer1.data = (char *)pvPortMalloc(CONSOLE_MAX_MESSAGE_LENGTH);
+    console_buffer2.data = (char *)pvPortMalloc(CONSOLE_MAX_MESSAGE_LENGTH);
+
+    // Initialize the produce and consume buffers
+    produce_console_buffer = &console_buffer1;
+    consume_console_buffer = &console_buffer2;
+
+    // Set the initial lengths of the console buffers to 0
+    produce_console_buffer->index = 0;
+    consume_console_buffer->index = 0;
+
+    // Create the Rx task
+    rslt = xTaskCreate(
+        task_console_rx,
+        "Console Rx",
+        configMINIMAL_STACK_SIZE,
+        NULL,
+        tskIDLE_PRIORITY + 1,
+        &TaskHandle_Console_Rx
+    );
     
     return (rslt == pdPASS); // Resources initialized successfully
 }

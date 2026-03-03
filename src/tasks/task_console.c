@@ -33,6 +33,27 @@ void console_event_handler(void *handler_arg, cyhal_uart_event_t event)
     if ((event & CYHAL_UART_IRQ_RX_NOT_EMPTY) == CYHAL_UART_IRQ_RX_NOT_EMPTY)
     {
         // ADD CODE 
+
+        // Read in the character
+
+        // Echo the character to the hardware FIFO
+
+        // If character is equal to backspace or the delete key
+        // remove the last character the array
+
+        // else if the current character is the \n or \r
+        // Null terminate the string
+        // and send a task notification to the bottom half task
+
+        // Swap the roles of the produce and consume buffer
+        console_buffer_t *temp = produce_console_buffer;
+        produce_console_buffer = consume_console_buffer;
+        consume_console_buffer = temp;
+        
+        vTaskNotifyGiveFromISR(TaskHandle_Console_Rx, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+
+        // else add the character to the buffer and increment the index
     }
     if ((event & CYHAL_UART_IRQ_TX_EMPTY) == CYHAL_UART_IRQ_TX_EMPTY)
     {
