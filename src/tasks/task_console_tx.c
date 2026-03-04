@@ -30,6 +30,10 @@
 /* ADD CODE*/
 /* Global Variables */
 
+// Allocate space for the transmit queue
+
+// Allocate space for the Circular Buffer
+
 
 /**
  * @brief 
@@ -44,6 +48,19 @@ void task_console_tx(void *param)
     while (1)
     {
         /* ADD CODE */
+
+        // Wait for console_buffer_t messages from the queue
+
+        // A for loop that examines the message and adds each byte into the circular buffer
+
+            // If the circular buffer is full, vTaskDelay(5)
+
+            // Add the next byte to the CB
+
+            // Enable the Trasmit Empty Interrupts
+
+        // Free the data was sent from the console_buffer_t
+
     }
 }
 
@@ -59,6 +76,9 @@ bool task_console_resources_init_tx(void)
     BaseType_t rslt = pdPASS;
 
     /* ADD CODE */
+    // Initialize the Tx FreeRTOS
+    
+    // Init the Circular Buffer
 
     if (rslt != pdPASS)
     {

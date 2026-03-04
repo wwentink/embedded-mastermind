@@ -79,6 +79,11 @@ void console_event_handler(void *handler_arg, cyhal_uart_event_t event)
     if ((event & CYHAL_UART_IRQ_TX_EMPTY) == CYHAL_UART_IRQ_TX_EMPTY)
     {
         /* ADD CODE */
+
+        // If the CB is empty, disable TX Empty Interrupts
+
+        // If the CB is not empty, get next char/byte from the
+        // CB and begin transmitting it
     }
     else
     {
