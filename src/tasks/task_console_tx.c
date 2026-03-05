@@ -31,8 +31,13 @@
 /* Global Variables */
 
 // Allocate space for the transmit queue
+QueueHandle_t xQueue_Console_Tx;
 
 // Allocate space for the Circular Buffer
+circular_buffer_t *circular_buffer_tx;
+
+// Task Handle
+TaskHandle_t TaskHandle_Console_Tx;
 
 
 /**
@@ -50,16 +55,29 @@ void task_console_tx(void *param)
         /* ADD CODE */
 
         // Wait for console_buffer_t messages from the queue
+        if (xQueueReceive(xQueue_Console_Tx, &tx_msg, portMAX_DELAY) == pdPASS)
+        {
+            // A for loop that examines the message and adds each byte into the circular buffer
+            for (uint32_t i = 0; i < strlen(tx_msg.data); i++)
+            {
+                // If the circular buffer is full, vTaskDelay(5)
+                while (circular_buffer_full(circular_buffer_tx))
+                {
+                    vTaskDelay(pdMS_TO_TICKS(5));
+                }
 
-        // A for loop that examines the message and adds each byte into the circular buffer
-
-            // If the circular buffer is full, vTaskDelay(5)
-
-            // Add the next byte to the CB
+                // Add the next byte to the CB without interruption
+                taskENTER_CRITICAL();
+                circular_buffer_add(circular_buffer_tx, tx_msg.data[i]);
+                taskEXIT_CRITICAL();
+            }
 
             // Enable the Trasmit Empty Interrupts
+            cyhal_uart_enable_event(&cy_retarget_io_uart_obj, CYHAL_UART_IRQ_TX_EMPTY, 1, 1);
 
-        // Free the data was sent from the console_buffer_t
+            // Free the data was sent from the console_buffer_t
+            vPortFree(tx_msg.data);
+        }
 
     }
 }
@@ -76,11 +94,23 @@ bool task_console_resources_init_tx(void)
     BaseType_t rslt = pdPASS;
 
     /* ADD CODE */
-    // Initialize the Tx FreeRTOS
+    // Initialize the Tx FreeRTOS gatekeeper task
+    rslt = xTaskCreate(
+        task_console_tx,          // Task function
+        "Console Tx",            // Name of the task (for debugging)
+        256,                     // Stack size in words
+        NULL,                    // Task input parameter
+        2,                       // Priority of the task
+        &TaskHandle_Console_Tx   // Task handle
+    );
     
     // Init the Circular Buffer
+    circular_buffer_tx = circular_buffer_init(256);
+    
+    // Init the Queue
+    xQueue_Console_Tx = xQueueCreate(CONSOLE_QUEUE_LENGTH, sizeof(console_buffer_t));
 
-    if (rslt != pdPASS)
+    if (rslt != pdPASS || xQueue_Console_Tx == NULL)
     {
         return false; // Initialization failed
     }
@@ -110,6 +140,8 @@ void task_console_printf(char *str_ptr, ...)
 
     /* ADD CODE */
     /* Allocate the message buffer */
+    message_buffer = (char *)pvPortMalloc(CONSOLE_MAX_MESSAGE_LENGTH);
+    
 
     if (message_buffer)
     {
@@ -125,9 +157,11 @@ void task_console_printf(char *str_ptr, ...)
 
         /* ADD CODE */
         /* Initialize the console buffer */
+        console_buffer.data = message_buffer;
 
         /* ADD CODE */
         /* The receiver task is responsible to free the memory from here on */
+        xQueueSend(xQueue_Console_Tx, &console_buffer, portMAX_DELAY);
 
     }
     else

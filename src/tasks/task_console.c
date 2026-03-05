@@ -81,9 +81,19 @@ void console_event_handler(void *handler_arg, cyhal_uart_event_t event)
         /* ADD CODE */
 
         // If the CB is empty, disable TX Empty Interrupts
+        if (circular_buffer_empty(circular_buffer_tx))
+        {
+            cyhal_uart_enable_event(&cy_retarget_io_uart_obj, CYHAL_UART_IRQ_TX_EMPTY, 0, 0);
+        }
 
         // If the CB is not empty, get next char/byte from the
         // CB and begin transmitting it
+        else
+        {
+            char next_byte;
+            circular_buffer_remove(circular_buffer_tx, &next_byte);
+            cyhal_uart_putc(&cy_retarget_io_uart_obj, next_byte);
+        }
     }
     else
     {

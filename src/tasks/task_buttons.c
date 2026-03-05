@@ -10,6 +10,7 @@
  */
 
  #include "task_buttons.h"
+ #include "task_console.h"
 
  #ifdef ECE353_FREERTOS
  /**
@@ -46,6 +47,7 @@
             {
                 // Set event bit for SW1 pressed
                 xEventGroupSetBits(ECE353_RTOS_Events, ECE353_EVENT_SW1_PRESSED);
+                task_console_printf("SW1 Pressed\n");
             }
         }
 
@@ -57,6 +59,7 @@
             {
                 // Set event bit for SW2 pressed
                 xEventGroupSetBits(ECE353_RTOS_Events, ECE353_EVENT_SW2_PRESSED);
+                task_console_printf("SW2 Pressed\n");
             }
         }
 
@@ -69,6 +72,7 @@
             {
                 // Set event bit for SW3 pressed
                 xEventGroupSetBits(ECE353_RTOS_Events, ECE353_EVENT_SW3_PRESSED);
+                task_console_printf("SW3 Pressed\n");
             }
         }
 
@@ -86,6 +90,14 @@
 bool task_button_init(void){
 
     BaseType_t result;
+    cy_rslt_t cy_result;
+
+    // Initialize the button GPIO pins
+    cy_result = buttons_init_gpio();
+    if (cy_result != CY_RSLT_SUCCESS)
+    {
+        return false;
+    }
 
     // Create the button task
     result = xTaskCreate(
