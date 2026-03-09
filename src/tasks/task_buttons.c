@@ -29,56 +29,47 @@
  {
     (void)arg; // Unused parameter
 
-    uint8_t sw1_prev = 1;
-    uint8_t sw2_prev = 1;
-    uint8_t sw3_prev = 1;
+    bool sw1_prev_pressed = false;
+    bool sw2_prev_pressed = false;
+    bool sw3_prev_pressed = false;
 
     while (1)
     {
-        uint8_t sw1_now = cyhal_gpio_read(PIN_BUTTON_SW1);
-        uint8_t sw2_now = cyhal_gpio_read(PIN_BUTTON_SW2);
-        uint8_t sw3_now = cyhal_gpio_read(PIN_BUTTON_SW3);
+        bool sw1_now_pressed = (cyhal_gpio_read(PIN_BUTTON_SW1) == 0);
+        bool sw2_now_pressed = (cyhal_gpio_read(PIN_BUTTON_SW2) == 0);
+        bool sw3_now_pressed = (cyhal_gpio_read(PIN_BUTTON_SW3) == 0);
 
-        // Detect falling edge of SW1 with 30 mS debounce
-        if ((sw1_prev == 1) && (sw1_now == 0))
+        if (sw1_now_pressed && !sw1_prev_pressed)
         {
-            vTaskDelay(pdMS_TO_TICKS(30)); // Debounce delay
+            vTaskDelay(pdMS_TO_TICKS(30));
             if (cyhal_gpio_read(PIN_BUTTON_SW1) == 0)
             {
-                // Set event bit for SW1 pressed
                 xEventGroupSetBits(ECE353_RTOS_Events, ECE353_EVENT_SW1_PRESSED);
-                task_console_printf("SW1 Pressed\n");
             }
         }
 
-        // Detect falling edge of SW2 with 30 mS debounce
-        if ((sw2_prev == 1) && (sw2_now == 0))
+        if (sw2_now_pressed && !sw2_prev_pressed)
         {
-            vTaskDelay(pdMS_TO_TICKS(30)); // Debounce delay
+            vTaskDelay(pdMS_TO_TICKS(30));
             if (cyhal_gpio_read(PIN_BUTTON_SW2) == 0)
             {
-                // Set event bit for SW2 pressed
                 xEventGroupSetBits(ECE353_RTOS_Events, ECE353_EVENT_SW2_PRESSED);
-                task_console_printf("SW2 Pressed\n");
             }
         }
 
 
-        // Monitor button SW3
-        if ((sw3_prev == 1) && (sw3_now == 0))
+        if (sw3_now_pressed && !sw3_prev_pressed)
         {
-            vTaskDelay(pdMS_TO_TICKS(30)); // Debounce delay
+            vTaskDelay(pdMS_TO_TICKS(30));
             if (cyhal_gpio_read(PIN_BUTTON_SW3) == 0)
             {
-                // Set event bit for SW3 pressed
                 xEventGroupSetBits(ECE353_RTOS_Events, ECE353_EVENT_SW3_PRESSED);
-                task_console_printf("SW3 Pressed\n");
             }
         }
 
-        sw1_prev = sw1_now;
-        sw2_prev = sw2_now;
-        sw3_prev = sw3_now;
+        sw1_prev_pressed = sw1_now_pressed;
+        sw2_prev_pressed = sw2_now_pressed;
+        sw3_prev_pressed = sw3_now_pressed;
   
 
         // Debounce delay

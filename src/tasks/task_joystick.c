@@ -13,67 +13,148 @@
 
 #ifdef ECE353_FREERTOS  
 #include "drivers.h"
- #include "task_joystick.h"
+#include "task_joystick.h"
+#include "devices.h"
 
- QueueHandle_t Queue_Joystick = NULL;
+/* External queue for joystick device requests */
+extern QueueHandle_t Queue_Requests_Joystick;
 
-/* Message lookup table for joystick positions */
-const char * const joystick_pos_names[] = {
-    "Center",
-    "Left",
-    "Right",
-    "Up",
-    "Down",
-    "Upper Left",
-    "Upper Right",
-    "Lower Left",
-    "Lower Right"
-};
+/* External event group for system events */
+extern EventGroupHandle_t ECE353_RTOS_Events;
 
- /**
-  * @brief 
-  *  Task used to monitor the joystick
-  * @param arg 
-  */
- void task_joystick(void *arg)
+/**
+ * @brief 
+ * Task used to monitor the joystick and publish events.
+ * 
+ * Periodically sends a DEVICE_OP_READ request to Queue_Requests_Joystick,
+ * waits for response, and sets EventGroup bits based on joystick direction.
+ * Also tracks return to CENTER position.
+ * 
+ * @param arg Unused parameter
+ */
+void task_joystick(void *arg)
 {
     (void)arg; // Unused parameter
 
-    joystick_position_t position;
+    device_request_msg_t request;
+    device_response_msg_t response;
+    joystick_position_t current_position = JOYSTICK_POS_CENTER;
     joystick_position_t previous_position = JOYSTICK_POS_CENTER;
-
-    while(1)
+    
+    /* Create a local response queue for receiving joystick data */
+    QueueHandle_t response_queue = xQueueCreate(1, sizeof(device_response_msg_t));
+    if (response_queue == NULL)
     {
-        vTaskDelay(pdMS_TO_TICKS(500)); // Check joystick position every 500 ms
+        printf("Failed to create joystick response queue\n\r");
+        CY_ASSERT(0);
+    }
 
-        position = joystick_get_pos();
+    /* Initialize request structure */
+    request.device = DEVICE_JOYSTICK;
+    request.operation = DEVICE_OP_READ;
+    request.address = 0;
+    request.value = 0;
+    request.response_queue = response_queue;
 
-        // Only add to queue if position has changed
-        if(position != previous_position)
+    /* Use vTaskDelayUntil for periodic polling */
+    TickType_t last_wake_time = xTaskGetTickCount();
+    const TickType_t poll_period = pdMS_TO_TICKS(50); // 50ms polling period
+
+    while (1)
+    {
+        /* Send read request to joystick device */
+        if (xQueueSend(Queue_Requests_Joystick, &request, pdMS_TO_TICKS(10)) == pdPASS)
         {
-            printf("Joystick Position: %s\n", joystick_pos_names[position]);
-            
-            // Send position to queue
-            xQueueOverwrite(Queue_Joystick, &position);
-            
-            // Update previous position
-            previous_position = position;
+            /* Wait for response */
+            if (xQueueReceive(response_queue, &response, pdMS_TO_TICKS(100)) == pdPASS)
+            {
+                if (response.status == DEVICE_OPERATION_STATUS_READ_SUCCESS)
+                {
+                    current_position = response.payload.joystick;
+                    
+                    /* Set EventGroup bits based on joystick position */
+                    if (current_position != previous_position)
+                    {
+                        EventBits_t event_bits = 0;
+                        
+                        /* Determine which event bit to set based on joystick position */
+                        event_bits = 0;
+                        
+                        if (current_position == JOYSTICK_POS_CENTER)
+                        {
+                            /* Joystick returned to center */
+                            event_bits = EVENT_JOYSTICK_CENTER;
+                        }
+                        else if (current_position == JOYSTICK_POS_UP ||
+                                 current_position == JOYSTICK_POS_UPPER_LEFT ||
+                                 current_position == JOYSTICK_POS_UPPER_RIGHT)
+                        {
+                            event_bits = EVENT_JOYSTICK_UP;
+                        }
+                        else if (current_position == JOYSTICK_POS_DOWN ||
+                                 current_position == JOYSTICK_POS_LOWER_LEFT ||
+                                 current_position == JOYSTICK_POS_LOWER_RIGHT)
+                        {
+                            event_bits = EVENT_JOYSTICK_DOWN;
+                        }
+                        else if (current_position == JOYSTICK_POS_LEFT ||
+                                 current_position == JOYSTICK_POS_UPPER_LEFT ||
+                                 current_position == JOYSTICK_POS_LOWER_LEFT)
+                        {
+                            event_bits = EVENT_JOYSTICK_LEFT;
+                        }
+                        else if (current_position == JOYSTICK_POS_RIGHT ||
+                                 current_position == JOYSTICK_POS_UPPER_RIGHT ||
+                                 current_position == JOYSTICK_POS_LOWER_RIGHT)
+                        {
+                            event_bits = EVENT_JOYSTICK_RIGHT;
+                        }
+                        
+                        /* Set the appropriate event bit(s) */
+                        if (event_bits != 0)
+                        {
+                            xEventGroupSetBits(ECE353_RTOS_Events, event_bits);
+                        }
+                        
+                        previous_position = current_position;
+                    }
+                }
+            }
         }
+
+        /* Wait until the next polling period */
+        vTaskDelayUntil(&last_wake_time, poll_period);
     }
 }
 
 
+/**
+ * @brief 
+ * Initialize the joystick task and create it with FreeRTOS.
+ * 
+ * @return bool True if initialization was successful, false otherwise
+ */
 bool task_joystick_init(void)
 {
-    /* Create the Queue used to send Joystick Positions*/
-    // Initialize queue to size 1 and hold joystick_position_t values
-    Queue_Joystick = xQueueCreate(1, sizeof(joystick_position_t));
+    BaseType_t result;
 
     /* Create the joystick task */
-    // Register task_joystick with FreeRTOS
-    xTaskCreate(task_joystick, "Joystick Task", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY + 1, NULL);
-        
-    
+    result = xTaskCreate(
+        task_joystick,                      // Task function
+        "Joystick Task",                    // Task name
+        configMINIMAL_STACK_SIZE * 2,       // Stack size
+        NULL,                               // Task parameters
+        tskIDLE_PRIORITY + 1,               // Task priority
+        NULL                                // Task handle
+    );
+
+    if (result != pdPASS)
+    {
+        printf("Failed to create joystick task\n\r");
+        return false;
+    }
+
     return true;
 }
+
 #endif

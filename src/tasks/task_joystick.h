@@ -13,13 +13,26 @@
 #include "main.h"
 #include "drivers.h"
 #include "rtos_events.h"
-#include <complex.h>
 
 #ifdef ECE353_FREERTOS
-extern QueueHandle_t Queue_Joystick;
 
+/**
+ * @brief
+ * Task that monitors the joystick and publishes movement events.
+ * 
+ * Periodically sends joystick read requests via Queue_Requests_Joystick
+ * and sets EventGroup bits based on joystick direction changes.
+ * 
+ * @param arg Unused parameter
+ */
 void task_joystick(void *arg);
 
+/**
+ * @brief
+ * Initialize the joystick task and create it with FreeRTOS.
+ * 
+ * @return bool True if successful, false otherwise
+ */
 bool task_joystick_init(void);
 
 #endif
