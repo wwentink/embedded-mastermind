@@ -240,7 +240,8 @@ void task_hw02_system_control(void *pvParameters)
         /* Handle joystick movements */
         if (event_bits & EVENT_JOYSTICK_LEFT)
         {
-            if (active_data_col > 0)
+            /* Horizontal moves stay within the current 4-tile row. */
+            if ((active_data_col % 4) > 0)
             {
                 uint8_t prev_col = active_data_col;
                 active_data_col--;
@@ -258,7 +259,8 @@ void task_hw02_system_control(void *pvParameters)
         }
         else if (event_bits & EVENT_JOYSTICK_RIGHT)
         {
-            if (active_data_col < 7)
+            /* Horizontal moves stay within the current 4-tile row. */
+            if ((active_data_col % 4) < 3)
             {
                 uint8_t prev_col = active_data_col;
                 active_data_col++;
