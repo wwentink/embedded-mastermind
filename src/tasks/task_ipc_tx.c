@@ -36,6 +36,16 @@ void task_ipc_tx(void *param)
     while(1)
     {
         /* ADD CODE */
+
+        /* Receive the IPC packet from the queue */
+        if(xQueueReceive(Queue_IPC_Tx, &packet, portMAX_DELAY) == pdTRUE)
+        {
+            /* Transmit the IPC packet 1-byte at a time */
+            for(int i = 0; i < sizeof(ipc_packet_t); i++)
+            {
+                cyhal_uart_putc(&IPC_Uart_Obj, ((uint8_t*)&packet)[i]);
+            }
+        }
     }
 }
 
@@ -52,9 +62,9 @@ bool task_ipc_resources_init_tx(void)
     BaseType_t task_ipc_tx_status = xTaskCreate(
         task_ipc_tx,                 // Function that implements the task.
         "IPC Tx Task",               // Text name for the task.
-        5*configMINIMAL_STACK_SIZE,    // Stack size in words, not bytes.
+        IPC_STACK_SIZE,             // Stack size in words, not bytes.
         NULL,                       // Parameter passed into the task.
-        tskIDLE_PRIORITY + 1,       // Priority at which the task is created.
+        IPC_PRIORITY,               // Priority at which the task is created.
         &TaskHandle_IPC_Tx          // Used to pass out the created task's handle.
     );
 
@@ -66,4 +76,5 @@ bool task_ipc_resources_init_tx(void)
         return true; // Resources initialized successfully
     }
 }
+
 #endif

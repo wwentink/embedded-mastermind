@@ -9,18 +9,17 @@
  * 
  */
 
- #include "buttons.h"
-
 #include "buttons.h"
 
-/* Store previous states for edge detection */
-static button_state_t prev_state_sw1 = BUTTON_STATE_HIGH;
-static button_state_t prev_state_sw2 = BUTTON_STATE_HIGH;
-static button_state_t prev_state_sw3 = BUTTON_STATE_HIGH;
+static bool buttons_gpio_initialized = false;
 
 /* Initialize the GPIO pins for the buttons */
 cy_rslt_t buttons_init_gpio(void) {
     cy_rslt_t result = CY_RSLT_SUCCESS;
+
+    if (buttons_gpio_initialized) {
+        return CY_RSLT_SUCCESS;
+    }
 
     // Initialize SW1
     result = cyhal_gpio_init(PIN_BUTTON_SW1, CYHAL_GPIO_DIR_INPUT, CYHAL_GPIO_DRIVE_NONE, 0);
@@ -39,6 +38,8 @@ cy_rslt_t buttons_init_gpio(void) {
     if (result != CY_RSLT_SUCCESS) {
         return result;
     }
+
+    buttons_gpio_initialized = true;
 
     return result;
 }

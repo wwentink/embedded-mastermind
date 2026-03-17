@@ -40,6 +40,10 @@ extern EventGroupHandle_t ECE353_RTOS_Events;
 #define EVENT_JOYSTICK_RIGHT       (1 << 3)    // Joystick moved RIGHT
 #define EVENT_JOYSTICK_CENTER      (1 << 4)    // Joystick returned to CENTER
 
+// IPC events
+#define ECE353_RTOS_EVENTS_IPC_ACK_RECEIVED   (1 << 8)   // Event bit for IPC ACK received
+#define ECE353_RTOS_EVENTS_IPC_DISCOVERY_RX    (1 << 9)   // Event bit when a discovery message is received
+
 #endif // ECE353_FREERTOS
 
 #endif // __RTOS_EVENTS_H__
