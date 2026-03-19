@@ -32,6 +32,10 @@ cyhal_uart_cfg_t IPC_Uart_Config =
 
 uint32_t IPC_Actual_Baud;
 
+volatile uint16_t IPC_Last_Tx_Sequence = 0;
+volatile uint16_t IPC_Last_Ack_Sequence = 0;
+volatile bool IPC_Ack_Sequence_Valid = false;
+
 
 /**
  * @brief 
@@ -95,6 +99,7 @@ bool ipc_send_discovery(uint16_t sequence_num) {
     };
 
     packet.checksum = calculate_checksum(&packet);
+    IPC_Last_Tx_Sequence = sequence_num;
 
     if (xQueueSend(Queue_IPC_Tx, &packet, pdMS_TO_TICKS(100)) != pdPASS) {
         return false; // Failed to send packet to queue
@@ -113,6 +118,7 @@ bool ipc_send_active_player(uint16_t sequence_num) {
     };
 
     packet.checksum = calculate_checksum(&packet);
+    IPC_Last_Tx_Sequence = sequence_num;
 
     if (xQueueSend(Queue_IPC_Tx, &packet, pdMS_TO_TICKS(100)) != pdPASS) {
         return false; // Failed to send packet to queue
@@ -131,6 +137,7 @@ bool ipc_send_inactive_player(uint16_t sequence_num) {
     };
 
     packet.checksum = calculate_checksum(&packet);
+    IPC_Last_Tx_Sequence = sequence_num;
 
     if (xQueueSend(Queue_IPC_Tx, &packet, pdMS_TO_TICKS(100)) != pdPASS) {
         return false; // Failed to send packet to queue
@@ -148,6 +155,7 @@ bool ipc_send_status(uint16_t sequence_num, ipc_status_t status) {
     };
 
     packet.checksum = calculate_checksum(&packet);
+    IPC_Last_Tx_Sequence = sequence_num;
 
     if (xQueueSend(Queue_IPC_Tx, &packet, pdMS_TO_TICKS(100)) != pdPASS) {
         return false; // Failed to send packet to queue
@@ -175,16 +183,49 @@ bool ipc_send_ack(uint16_t sequence_num) {
 }
 
 bool ipc_wait_for_ack(uint32_t timeout_ms) {
-    // Implementation for waiting for ACK
-    EventBits_t events = xEventGroupWaitBits(
-        ECE353_RTOS_Events,
-        ECE353_RTOS_EVENTS_IPC_ACK_RECEIVED,
-        pdTRUE,
-        pdFALSE,
-        pdMS_TO_TICKS(timeout_ms)
-    );
+    TickType_t start_ticks = xTaskGetTickCount();
+    TickType_t timeout_ticks = pdMS_TO_TICKS(timeout_ms);
 
-    return (events & ECE353_RTOS_EVENTS_IPC_ACK_RECEIVED) != 0;
+    while(1)
+    {
+        TickType_t elapsed_ticks = xTaskGetTickCount() - start_ticks;
+        TickType_t remaining_ticks;
+        EventBits_t events;
+        bool ack_matches = false;
+
+        if(elapsed_ticks >= timeout_ticks)
+        {
+            return false;
+        }
+
+        remaining_ticks = timeout_ticks - elapsed_ticks;
+
+        events = xEventGroupWaitBits(
+            ECE353_RTOS_Events,
+            ECE353_RTOS_EVENTS_IPC_ACK_RECEIVED,
+            pdTRUE,
+            pdFALSE,
+            remaining_ticks
+        );
+
+        if((events & ECE353_RTOS_EVENTS_IPC_ACK_RECEIVED) == 0)
+        {
+            return false;
+        }
+
+        taskENTER_CRITICAL();
+        if(IPC_Ack_Sequence_Valid)
+        {
+            ack_matches = (IPC_Last_Ack_Sequence == IPC_Last_Tx_Sequence);
+            IPC_Ack_Sequence_Valid = false;
+        }
+        taskEXIT_CRITICAL();
+
+        if(ack_matches)
+        {
+            return true;
+        }
+    }
 }
 
 

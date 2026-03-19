@@ -91,6 +91,11 @@ extern TaskHandle_t TaskHandle_IPC_Rx;
 extern QueueHandle_t Queue_IPC_Tx;
 extern TaskHandle_t TaskHandle_IPC_Tx;
 
+/* Globals used for matching ACK packets to the most recent outbound message */
+extern volatile uint16_t IPC_Last_Tx_Sequence;
+extern volatile uint16_t IPC_Last_Ack_Sequence;
+extern volatile bool IPC_Ack_Sequence_Valid;
+
 bool task_ipc_resources_init_rx(void);
 bool task_ipc_resources_init_tx(void);
 bool task_ipc_init(void);

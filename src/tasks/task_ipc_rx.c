@@ -53,28 +53,33 @@ void task_ipc_rx(void *param)
             switch(IPC_Rx_Consume_Buffer->cmd)
             {
                 case IPC_CMD_DISCOVERY:
-                    printf("Received IPC Discovery Packet with sequence number: %d\n\r", IPC_Rx_Consume_Buffer->sequence_num);
+                    printf("Discovery message received from other board!\n\r");
                     xEventGroupSetBits(ECE353_RTOS_Events, ECE353_RTOS_EVENTS_IPC_DISCOVERY_RX);
                     ipc_send_ack(IPC_Rx_Consume_Buffer->sequence_num);
                     break;
                 case IPC_CMD_ACTIVE_PLAYER:
-                    printf("Received IPC Active Player Packet with sequence number: %d\n\r", IPC_Rx_Consume_Buffer->sequence_num);
+                    printf("Received Active Player Message!\n\r");
                     ipc_send_ack(IPC_Rx_Consume_Buffer->sequence_num);
                     break;
                 case IPC_CMD_INACTIVE_PLAYER:
-                    printf("Received IPC Inactive Player Packet with sequence number: %d\n\r", IPC_Rx_Consume_Buffer->sequence_num);
+                    printf("Received Inactive Player Message!\n\r");
                     ipc_send_ack(IPC_Rx_Consume_Buffer->sequence_num);
                     break;
                 case IPC_CMD_STATUS:
                     printf(
-                        "Received IPC Status Packet with sequence number: %d, status: 0x%02X\n\r",
-                        IPC_Rx_Consume_Buffer->sequence_num,
+                        "Received Status Message with status code: 0x%02X!\n\r",
                         IPC_Rx_Consume_Buffer->payload.status
                     );
                     ipc_send_ack(IPC_Rx_Consume_Buffer->sequence_num);
                     break;
                 case IPC_CMD_ACK:
-                    printf("Received IPC ACK Packet with sequence number: %d\n\r", IPC_Rx_Consume_Buffer->sequence_num);
+                    printf("Received ACK for sequence number: %d!\n\r", IPC_Rx_Consume_Buffer->sequence_num);
+
+                    taskENTER_CRITICAL();
+                    IPC_Last_Ack_Sequence = IPC_Rx_Consume_Buffer->sequence_num;
+                    IPC_Ack_Sequence_Valid = true;
+                    taskEXIT_CRITICAL();
+
                     xEventGroupSetBits(ECE353_RTOS_Events, ECE353_RTOS_EVENTS_IPC_ACK_RECEIVED);
                     break;
                 default:

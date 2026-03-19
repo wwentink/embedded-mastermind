@@ -60,7 +60,16 @@ void discover_board(uint16_t *sequence_num)
         if(events & (ECE353_RTOS_EVENTS_IPC_ACK_RECEIVED | ECE353_RTOS_EVENTS_IPC_DISCOVERY_RX))
         {
             discovery_complete = true;
-            printf("Discovery complete!\n\r");
+
+            if(events & ECE353_RTOS_EVENTS_IPC_DISCOVERY_RX)
+            {
+                printf("Discovery message received from other board!\n\r");
+            }
+
+            if(events & ECE353_RTOS_EVENTS_IPC_ACK_RECEIVED)
+            {
+                printf("ACK received for discovery message!\n\r");
+            }
         }
         else
         {
@@ -110,11 +119,11 @@ void task_system_control(void *arg)
             /* Print out a message indicating if the ACK was received */
             if(ack_received)
             {
-                printf("ACK received for Active Player packet!\n\r");
+                printf("ACK received for active player message!\n\r");
             }
             else
             {
-                printf("ACK NOT received for Active Player packet!\n\r");
+                printf("ACK NOT received for active player message!\n\r");
             }
 
         }
@@ -129,18 +138,18 @@ void task_system_control(void *arg)
             /* Print out a message indicating if the ACK was received */
             if(ack_received)
             {
-                printf("ACK received for Inactive Player packet!\n\r");
+                printf("ACK received for inactive player message!\n\r");
             }
             else
             {
-                printf("ACK NOT received for Inactive Player packet!\n\r");
+                printf("ACK NOT received for inactive player message!\n\r");
             }
 
         }
         else if(events & ECE353_EVENT_SW3_PRESSED)
         {
             /* Send the status message with an error code  */
-            ipc_send_status(sequence_num++, IPC_STATUS_INVALID_MSG_TYPE);
+            ipc_send_status(sequence_num++, IPC_STATUS_CRC_FAIL);
 
             /* Wait for the ack */
             bool ack_received = ipc_wait_for_ack(100);
@@ -148,11 +157,11 @@ void task_system_control(void *arg)
             /* Print out a message indicating if the ACK was received */
             if(ack_received)
             {
-                printf("ACK received for Status packet!\n\r");
+                printf("ACK received for status message!\n\r");
             }
             else
             {
-                printf("ACK NOT received for Status packet!\n\r");
+                printf("ACK NOT received for status message!\n\r");
             }
         }
         else
