@@ -567,3 +567,6 @@
 123	728	7955911202309407	C:/Users/willw/ece353/ece353-s26-wwentink/build/Debug/local/src/tasks/task_ipc_tx.o	1d0d6024f68d8f78
 101	761	7955911202063946	C:/Users/willw/ece353/ece353-s26-wwentink/build/Debug/local/src/tasks/task_ipc.o	db92049f149d7e70
 761	1124	7955911208697186	build/ece353/Debug/mtb-example-ce240786-empty-app.elf	58c54441c60df78d
+50	464	7956407313215129	C:/Users/willw/ece353/ece353-s26-wwentink/build/Debug/local/src/ice/ice11.o	38268995d69628eb
+61	479	7956407313327946	C:/Users/willw/ece353/ece353-s26-wwentink/build/Debug/local/src/tasks/task_ipc.o	db92049f149d7e70
+479	820	7956407317504126	build/ece353/Debug/mtb-example-ce240786-empty-app.elf	58c54441c60df78d

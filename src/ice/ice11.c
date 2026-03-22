@@ -42,6 +42,16 @@ EventGroupHandle_t ECE353_RTOS_Events = NULL;
 void discover_board(uint16_t *sequence_num)
 {
     bool discovery_complete = false;
+
+    /* Clear any stale IPC events/ACK state before we begin discovery retries. */
+    xEventGroupClearBits(
+        ECE353_RTOS_Events,
+        ECE353_RTOS_EVENTS_IPC_ACK_RECEIVED | ECE353_RTOS_EVENTS_IPC_DISCOVERY_RX
+    );
+
+    taskENTER_CRITICAL();
+    IPC_Ack_Sequence_Valid = false;
+    taskEXIT_CRITICAL();
     
     while(discovery_complete == false)
     {

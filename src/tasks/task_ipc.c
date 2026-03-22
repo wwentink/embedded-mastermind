@@ -36,6 +36,21 @@ volatile uint16_t IPC_Last_Tx_Sequence = 0;
 volatile uint16_t IPC_Last_Ack_Sequence = 0;
 volatile bool IPC_Ack_Sequence_Valid = false;
 
+static bool ipc_cmd_is_valid(ipc_cmd_t cmd)
+{
+    switch(cmd)
+    {
+        case IPC_CMD_DISCOVERY:
+        case IPC_CMD_ACTIVE_PLAYER:
+        case IPC_CMD_INACTIVE_PLAYER:
+        case IPC_CMD_STATUS:
+        case IPC_CMD_ACK:
+            return true;
+        default:
+            return false;
+    }
+}
+
 
 /**
  * @brief 
@@ -81,7 +96,37 @@ bool validate_packet(ipc_packet_t *packet)
     checksum = calculate_checksum(packet);
 
     // Validate the checksum
-    return (checksum == packet->checksum);
+    if(checksum != packet->checksum)
+    {
+        return false;
+    }
+
+    // Reject packets with unknown command values.
+    if(!ipc_cmd_is_valid(packet->cmd))
+    {
+        return false;
+    }
+
+    // All commands except status should carry IPC_STATUS_OK in payload.
+    if((packet->cmd != IPC_CMD_STATUS) && (packet->payload.status != IPC_STATUS_OK))
+    {
+        return false;
+    }
+
+    // STATUS packets must carry one of the supported status values.
+    if(packet->cmd == IPC_CMD_STATUS)
+    {
+        if(
+            (packet->payload.status != IPC_STATUS_OK) &&
+            (packet->payload.status != IPC_STATUS_CRC_FAIL) &&
+            (packet->payload.status != IPC_STATUS_INVALID_MSG_TYPE)
+        )
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 /********************************************************************/
