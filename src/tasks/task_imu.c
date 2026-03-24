@@ -38,9 +38,6 @@ static cyhal_gpio_t imu_cs_pin = NC;
  */
 bool system_sensors_get_imu(QueueHandle_t return_queue, int16_t imu_data[3])
 {
-    device_request_msg_t request;
-    device_response_msg_t response;
-
     if(return_queue == NULL || imu_data == NULL)
     {
         return false;
@@ -54,20 +51,34 @@ bool system_sensors_get_imu(QueueHandle_t return_queue, int16_t imu_data[3])
  void task_imu(void *arg)
  {
     (void) arg;
-    device_request_msg_t request;
-    device_response_msg_t response;
+    int16_t accel_data[3];
+
+    xSemaphoreTake(*SPI_Semaphore, portMAX_DELAY);
 
     if(!imu_init(imu_spi_obj, imu_cs_pin))
     {
-        CY_ASSERT(0);
+        task_console_printf("IMU initialization failed!");
+        vTaskSuspend(NULL);
+    } else {
+        task_console_printf("IMU initialization successful!");
     }
+
+    xSemaphoreGive(*SPI_Semaphore);
 
     while(1)
     {
         /* Wait for a request to be available */
-        xQueueReceive(Queue_IMU_Request, &request, portMAX_DELAY);
+        vTaskDelay(pdMS_TO_TICKS(250));
+        
+        xSemaphoreTake(*SPI_Semaphore, portMAX_DELAY);
 
-        /* ADD CODE */  
+        // read acceleration data from the IMU
+        imu_read_registers(imu_spi_obj, imu_cs_pin, IMU_REG_OUTX_L_XL, (uint8_t *)accel_data, 6);
+
+        xSemaphoreGive(*SPI_Semaphore);
+
+        // print out the raw acceleration data to the console
+        task_console_printf("Accel: %d, %d, %d\n", accel_data[0], accel_data[1], accel_data[2]);
     }
 }
 

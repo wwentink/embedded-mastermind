@@ -53,6 +53,24 @@ void app_init_hw(void)
     printf("* Name:%s\n\r", NAME);
     printf("**************************************************\n\r");
 
+    // Initialize the SPI peripheral and create a semaphore for SPI access
+    SPI_Obj = spi_init(PIN_SPI_MOSI, PIN_SPI_MISO, PIN_SPI_CLK);
+    if (SPI_Obj == NULL)
+    {
+        printf("SPI initialization failed!\n\r");
+        for(int i = 0; i < 10000; i++);
+        CY_ASSERT(0);
+    }
+
+    // Initialize the SPI semaphore
+    rslt = cyhal_gpio_init(PIN_IMU_CS, CYHAL_GPIO_DIR_OUTPUT, CYHAL_GPIO_DRIVE_STRONG, 1);
+    if (rslt != CY_RSLT_SUCCESS)
+    {
+        printf("GPIO initialization failed!\n\r");
+        for(int i = 0; i < 10000; i++);
+        CY_ASSERT(0);
+    }
+
 }
 
 /*****************************************************************************/
@@ -67,6 +85,19 @@ void app_main(void)
     if(!task_console_init())
     {
         printf("Console initialization failed!\n\r");
+        for(int i = 0; i < 10000; i++);
+        CY_ASSERT(0);
+    }
+
+    // Creat spi semaphore
+    Spi_Semaphore = xSemaphoreCreateBinary();
+    
+    xSemaphoreGive(Spi_Semaphore);
+
+    // Initalize the hardware resources and create task
+    if (!task_imu_resources_init((void *)&Spi_Semaphore, SPI_Obj, PIN_IMU_CS))
+    {
+        printf("IMU task resource initialization failed!\n\r");
         for(int i = 0; i < 10000; i++);
         CY_ASSERT(0);
     }

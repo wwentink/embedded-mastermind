@@ -25,6 +25,20 @@ void imu_write_reg(
     uint8_t value
 )
 {
+    // Write 2 bytes: Register address and value
+    uint8_t tx_buffer[2];
+    uint8_t rx_buffer[2]; // Not used for write, but required by the API
+    tx_buffer[0] = reg & 0x7F; // Clear the MSB for write operation
+    tx_buffer[1] = value;
+
+    // Pull CS low to select the IMU
+    cyhal_gpio_write(cs_pin, 0);
+
+    // Send data over SPI
+    cyhal_spi_transfer(spi_obj, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer), 100);
+
+    // Pull CS high to deselect the IMU
+    cyhal_gpio_write(cs_pin, 1);
 }
 
 /**
@@ -39,6 +53,22 @@ uint8_t imu_read_reg(
     uint8_t reg
 )
 {
+    // Write the register address with the MSB set to indicate a read operation
+    uint8_t tx_buffer[2];
+    uint8_t rx_buffer[2];
+    tx_buffer[0] = reg | 0x80; // Set the MSB for read operation
+    tx_buffer[1] = 0xFF; // Dummy byte for clocking out the data
+
+    // Pull CS low to select the IMU
+    cyhal_gpio_write(cs_pin, 0);
+
+    // Send the register address and read the response
+    cyhal_spi_transfer(spi_obj, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer), 100);
+
+    // Pull CS high to deselect the IMU
+    cyhal_gpio_write(cs_pin, 1);
+
+    return rx_buffer[1]; // The second byte contains the register value
 }
 
 /**
@@ -56,6 +86,22 @@ void imu_read_registers(
     uint8_t length
 )
 {
+    // Write the starting register address with the MSB set to indicate a read operation
+    uint8_t tx_buffer[1 + length];
+    uint8_t rx_buffer[length + 1]; // First byte is dummy for the register address
+    tx_buffer[0] = reg | 0x80; // Set the MSB for read operation
+
+    // Pull CS low to select the IMU
+    cyhal_gpio_write(cs_pin, 0);
+
+    // Send the register address and read the response
+    cyhal_spi_transfer(spi_obj, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer), 100);
+
+    // Pull CS high to deselect the IMU
+    cyhal_gpio_write(cs_pin, 1);
+
+    // Copy the received data to the output buffer (skip the first byte which is dummy)
+    memcpy(buffer, &rx_buffer[1], length);
 }
 
 /**
