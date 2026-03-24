@@ -42,7 +42,18 @@ bool system_sensors_eeprom_write(QueueHandle_t return_queue, uint16_t address, u
     device_request_msg_t request;
     device_response_msg_t response;
 
-    // ADD CODE
+    request.device = DEVICE_EEPROM;
+    request.operation = DEVICE_OP_WRITE;
+    request.address = address;
+    request.value = data;
+    request.response_queue = return_queue;
+
+    xQueueSend(Queue_EEPROM_Requests, &request, portMAX_DELAY);
+
+    if (return_queue != NULL)
+    {
+        xQueueReceive(return_queue, &response, portMAX_DELAY);
+    }
 
     return true;
 }   
@@ -70,7 +81,15 @@ bool system_sensors_eeprom_read(QueueHandle_t return_queue, uint16_t address, ui
         return false;
     }
 
-    // ADD CODE 
+    request.device = DEVICE_EEPROM;
+    request.operation = DEVICE_OP_READ;
+    request.address = address;
+    request.response_queue = return_queue;
+
+    xQueueSend(Queue_EEPROM_Requests, &request, portMAX_DELAY);
+
+    xQueueReceive(return_queue, &response, portMAX_DELAY);
+    *data = response.payload.eeprom;
 
     return true;
 }
@@ -97,7 +116,30 @@ void task_eeprom(void *arg)
             portMAX_DELAY
         );
 
-        /* ADD CODE */  
+        xSemaphoreTake(*SPI_Semaphore, portMAX_DELAY);
+
+        if (request_packet.operation == DEVICE_OP_WRITE)
+        {
+            eeprom_write_byte(eeprom_spi_obj, eeprom_cs_pin, request_packet.address, request_packet.value);
+
+            response_packet.device = DEVICE_EEPROM;
+            response_packet.status = DEVICE_OPERATION_STATUS_WRITE_SUCCESS;
+
+            if (request_packet.response_queue != NULL)
+            {
+                xQueueSend(request_packet.response_queue, &response_packet, portMAX_DELAY);
+            }
+        }
+        else if (request_packet.operation == DEVICE_OP_READ)
+        {
+            response_packet.device = DEVICE_EEPROM;
+            response_packet.status = DEVICE_OPERATION_STATUS_READ_SUCCESS;
+            response_packet.payload.eeprom = eeprom_read_byte(eeprom_spi_obj, eeprom_cs_pin, request_packet.address);
+
+            xQueueSend(request_packet.response_queue, &response_packet, portMAX_DELAY);
+        }
+
+        xSemaphoreGive(*SPI_Semaphore);
     }
 }
 
