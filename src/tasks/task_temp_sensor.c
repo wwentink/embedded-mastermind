@@ -32,9 +32,6 @@ static SemaphoreHandle_t *I2C_Semaphore = NULL;
 /* Queue used to send commands used to temp sensor */
 QueueHandle_t Queue_Temp_Sensor_Requests;
 
-/******************************************************************************/
-/* Static Function Definitions                                                */
-/******************************************************************************/
 
 /** Read the value of the input port
  *
@@ -45,14 +42,23 @@ static float LM75_get_temp(void)
 {
 	float temp = 0;
 	uint16_t raw_value =  0;
+	cy_rslt_t rslt;
 
 	// Read 2-bytes from the temperature register
+	rslt = i2c_read_u16(I2C_Obj, LM75_SUBORDINATE_ADDR, LM75_TEMP_REG, (uint16_t *)&raw_value);
+	if (rslt != CY_RSLT_SUCCESS)
+	{
+		printf("Failed to read temperature with error code: %lu\n", (unsigned long)rslt);
+		return 0;
+	}
 
 	// Need to format the raw value read from the sensor
 	// The LM75 returns a 9-bit, two's complement value
+	temp = (float)(raw_value >> 7); // Shift the raw value to get the 9-bit value in the correct position
 
 	// Convert the raw value to degrees Celsius
 	// Each bit is worth 0.5 degrees C	
+	temp *= 0.5;
 
 	return temp;
 }
@@ -62,6 +68,14 @@ static uint8_t LM75_get_product_id(void)
 	uint8_t prod_id = 0;
 
 	/* ADD CODE */
+	cy_rslt_t rslt;
+
+	rslt = i2c_read_u8(I2C_Obj, LM75_SUBORDINATE_ADDR, LM75_PRODUCT_ID_REG, &prod_id);
+	if (rslt != CY_RSLT_SUCCESS)
+	{
+		printf("Failed to read product ID with error code: %lu\n", (unsigned long)rslt);
+		return 0;
+	}
 
 	return prod_id;
 }
@@ -87,8 +101,27 @@ bool system_sensors_get_temp(QueueHandle_t return_queue, float *temperature)
 
 	/* ADD CODE*/
 	/* Send a request to the temp sensor task*/
+	packet.device = DEVICE_TEMPERATURE;
+	packet.operation = DEVICE_OP_READ;
+	packet.response_queue = return_queue;
+
+	/* Send the request to the temp sensor task */
+	xQueueSend(Queue_Temp_Sensor_Requests, &packet, portMAX_DELAY);
 
 	/* Wait for the response from the temp sensor task */
+	xQueueReceive(return_queue, &response, portMAX_DELAY);
+
+	/* Return the temperature to the caller */
+	*temperature = response.payload.temperature;
+
+	if (response.status == DEVICE_OPERATION_STATUS_READ_SUCCESS)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 /**
@@ -106,7 +139,23 @@ void task_temp_sensor(void *param)
 	
 	/* ADD CODE */
 
-	/* Verify that the device was found on the I2C Bus */
+	/* Grab the I2C semaphore */
+	xSemaphoreTake(*I2C_Semaphore, portMAX_DELAY);
+
+	/* Verify that the product ID is correct */
+	uint8_t product_id = LM75_get_product_id();
+	if (product_id != LM75_PRODUCT_ID)
+	{
+		task_console_printf("Error: Incorrect product ID read from LM75: 0x%02X\r\n", product_id);
+		vTaskDelay(pdMS_TO_TICKS(1000));
+		CY_ASSERT(0);
+	}
+	else
+	{
+		task_console_printf("Temp sensor found! Product ID: 0x%02X\r\n", product_id);
+	}
+
+	xSemaphoreGive(*I2C_Semaphore);
 
 	while (1)
 	{
@@ -115,9 +164,20 @@ void task_temp_sensor(void *param)
 	
 		/* ADD CODE */
 
+		/* Grab the I2C semaphore */
+		xSemaphoreTake(*I2C_Semaphore, portMAX_DELAY);
+
 		/* Read the Temperature*/
+		float temperature = LM75_get_temp();
+
+		/* Release the I2C semaphore */
+		xSemaphoreGive(*I2C_Semaphore);
 
 		/* Return the temperature */
+		response_packet.device = DEVICE_TEMPERATURE;
+		response_packet.status = DEVICE_OPERATION_STATUS_READ_SUCCESS;
+		response_packet.payload.temperature = temperature;
+		xQueueSend(request_packet.response_queue, &response_packet, portMAX_DELAY);
 
 	}
 }

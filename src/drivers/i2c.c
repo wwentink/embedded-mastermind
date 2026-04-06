@@ -32,6 +32,7 @@ cyhal_i2c_t * i2c_init(cyhal_gpio_t sda, cyhal_gpio_t scl)
 
 	if (rslt != CY_RSLT_SUCCESS)
 	{
+		printf("I2C initialization failed with error code: %d\n", rslt);
 		return NULL;
 	}
 
@@ -39,6 +40,7 @@ cyhal_i2c_t * i2c_init(cyhal_gpio_t sda, cyhal_gpio_t scl)
 	rslt = cyhal_i2c_configure(&i2c_monarch_obj, &i2c_monarch_config);
 	if (rslt != CY_RSLT_SUCCESS)
 	{
+		printf("I2C configuration failed with error code: %d\n", rslt);
 		return NULL;
 	}
 
@@ -58,6 +60,12 @@ cy_rslt_t i2c_write_u8(cyhal_i2c_t *obj, uint8_t subordinate_address, uint8_t re
 {
 	cy_rslt_t rslt = CY_RSLT_SUCCESS;
 
+	uint8_t data[2];
+	data[0] = reg;   // Register address
+	data[1] = value; // Data to write
+
+	rslt = cyhal_i2c_master_write(obj, subordinate_address, data, 2, 0, true);
+
 	return rslt;
 }
 
@@ -74,6 +82,27 @@ cy_rslt_t i2c_read_u8(cyhal_i2c_t *obj, uint8_t subordinate_address, uint8_t reg
 {
 	cy_rslt_t rslt = CY_RSLT_SUCCESS;
 
+	uint8_t tx_data = reg; // Register address to read from
+	uint8_t rx_data = 0;   // Variable to store the read value
+
+	rslt = cyhal_i2c_master_write(obj, subordinate_address, &tx_data, 1, 0, false);
+
+	if (rslt != CY_RSLT_SUCCESS)
+	{
+		printf("I2C write (for read) failed with error code: %d\n", rslt);
+		return rslt;
+	}
+
+	rslt = cyhal_i2c_master_read(obj, subordinate_address, &rx_data, 1, 0, true);
+
+	if (rslt != CY_RSLT_SUCCESS)
+	{
+		printf("I2C read failed with error code: %d\n", rslt);
+		return rslt;
+	}
+
+	*value = rx_data;
+
 	return rslt;
 }
 
@@ -89,6 +118,24 @@ cy_rslt_t i2c_read_u8(cyhal_i2c_t *obj, uint8_t subordinate_address, uint8_t reg
 cy_rslt_t i2c_read_u16(cyhal_i2c_t *obj, uint8_t subordinate_address, uint8_t reg, uint16_t *value)
 {
 	cy_rslt_t rslt = CY_RSLT_SUCCESS;
+
+	uint8_t tx_data = reg; // Register address to read from
+	uint8_t rx_data[2];   // Variable to store the read value
+
+	rslt = cyhal_i2c_master_write(obj, subordinate_address, &tx_data, 1, 0, false);
+	if (rslt != CY_RSLT_SUCCESS)
+	{
+		printf("I2C write (for read) failed with error code: %d\n", rslt);
+		return rslt;
+	}
+
+	rslt = cyhal_i2c_master_read(obj, subordinate_address, rx_data, 2, 0, true);
+	if (rslt != CY_RSLT_SUCCESS)
+	{
+		printf("I2C read failed with error code: %d\n", rslt);
+	}
+
+	*value = (rx_data[0] << 8) | rx_data[1];
 
 	return rslt;
 }
