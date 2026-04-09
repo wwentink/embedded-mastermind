@@ -83,7 +83,7 @@ void task_system_control(void *arg)
     system_sensors_io_expander_write(NULL, IOXP_ADDR_CONFIG, 0x80); //Set P7 as input, all others as outputs
     
     /* Set the initial state of the LEDs*/
-    system_sensors_io_expander_write(NULL, IOXP_ADDR_OUTPUT_PORT, 0x01); //Turn on LED0
+    system_sensors_io_expander_write(NULL, IOXP_ADDR_OUTPUT_PORT, led_value); //Turn on LED0
 
     while(1)
     {
@@ -156,7 +156,7 @@ void app_main(void)
         CY_ASSERT(0);
     }
 
-    if(!task_io_expander_resources_init(I2C_Obj, &I2C_Semaphore))
+    if(!task_io_expander_resources_init(&I2C_Semaphore, I2C_Obj))
     {
         printf("IO Expander Task initialization failed!\n\r");
         for(int i = 0; i < 10000; i++);
