@@ -51,6 +51,7 @@ bool task_console_resources_init_rx(void);
 bool task_console_resources_init_tx(void);
 bool task_console_init(void);
 void task_console_printf(char *str_ptr, ...);
+void console_event_handler(void *handler_arg, cyhal_uart_event_t event);
 
 
 #endif

@@ -136,7 +136,11 @@ void task_eeprom(void *arg)
             response_packet.status = DEVICE_OPERATION_STATUS_READ_SUCCESS;
             response_packet.payload.eeprom = eeprom_read_byte(eeprom_spi_obj, eeprom_cs_pin, request_packet.address);
 
-            xQueueSend(request_packet.response_queue, &response_packet, portMAX_DELAY);
+            // Return read data to the queue provided by the request originator.
+            if (request_packet.response_queue != NULL)
+            {
+                xQueueSend(request_packet.response_queue, &response_packet, portMAX_DELAY);
+            }
         }
 
         xSemaphoreGive(*SPI_Semaphore);
@@ -167,6 +171,10 @@ bool task_eeprom_resources_init(SemaphoreHandle_t *spi_semaphore, cyhal_spi_t *s
 
     /*Create the EEPROM Requests Queue */
     Queue_EEPROM_Requests = xQueueCreate(1, sizeof(device_request_msg_t ));
+    if(Queue_EEPROM_Requests == NULL)
+    {
+        return false;
+    }
 
     /* Create the FreeRTOS task for the EEPROM */
     if (xTaskCreate(

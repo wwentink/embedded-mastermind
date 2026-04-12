@@ -48,7 +48,6 @@ void task_ipc_rx(void *param)
 
         if(validate_packet((ipc_packet_t *)IPC_Rx_Consume_Buffer) == true) 
         {
-            /* ADD CODE */
             // Process the received IPC packet
             switch(IPC_Rx_Consume_Buffer->cmd)
             {

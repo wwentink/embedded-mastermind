@@ -60,5 +60,8 @@ typedef struct {
     } payload;
 } device_response_msg_t ;
 
+/* Parse CLI command data into a device request packet */
+bool parse_cli_data(char *data, device_request_msg_t *request);
+
 #endif
 #endif /* __DEVICES_H__ */

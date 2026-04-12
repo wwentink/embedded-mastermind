@@ -53,7 +53,6 @@ void app_init_hw(void)
     printf("* Name:%s\n\r", NAME);
     printf("**************************************************\n\r");
     
-    /* ADD CODE */
     /* Initialize the buttons */
     rslt = buttons_init_gpio();
     if (rslt != CY_RSLT_SUCCESS)
@@ -118,7 +117,6 @@ void app_main(void)
 
     while(1)
     {
-        /* ADD CODE */
 
         // If SW1 increase Red LED duty cycle by 10%
         if (ECE353_Events.sw1) {

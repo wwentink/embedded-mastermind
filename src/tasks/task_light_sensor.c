@@ -65,20 +65,6 @@ static void ltr_light_sensor_start(void)
     }
 }
 
-static uint8_t ltr_light_get_contr(void)
-{
-    uint8_t value = 0;
-    cy_rslt_t rslt;
-
-    rslt = i2c_read_u8(I2C_Obj, LTR_SUBORDINATE_ADDR, LTR_REG_CONTR, &value);
-    if (rslt != CY_RSLT_SUCCESS)
-    {
-        printf("Failed to read light sensor control register with error code: %lu\n", (unsigned long)rslt);
-    }
-
-    return value;
-}
-
 static uint8_t ltr_light_sensor_status(void)
 {
     uint8_t value = 0;
@@ -90,25 +76,6 @@ static uint8_t ltr_light_sensor_status(void)
         printf("Failed to read light sensor status with error code: %lu\n", (unsigned long)rslt);
     }
 
-
-    return value;
-}
-
-/**
- * @brief
- * Returns the part ID of the LTR_329ALS-01
- * @return uint8_t
- */
-static uint8_t ltr_light_sensor_part_id(void)
-{
-    uint8_t value = 0;
-
-    cy_rslt_t rslt;
-    rslt = i2c_read_u8(I2C_Obj, LTR_SUBORDINATE_ADDR, LTR_REG_PART_ID, &value);
-    if (rslt != CY_RSLT_SUCCESS)
-    {
-        printf("Failed to read light sensor part ID with error code: %lu\n", (unsigned long)rslt);
-    }
 
     return value;
 }

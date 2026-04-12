@@ -19,6 +19,9 @@ char APP_DESCRIPTION[] = "ECE353 S26 HW04";
 /*****************************************************************************/
 cyhal_i2c_t *I2C_Monarch_Obj;
 cyhal_spi_t *SPI_Monarch_Obj;
+SemaphoreHandle_t I2C_Monarch_Semaphore;
+SemaphoreHandle_t SPI_Monarch_Semaphore;
+static bool hw04_banner_printed = false;
 
 /*****************************************************************************/
 /* Function Definitions                                                      */
@@ -35,7 +38,29 @@ cyhal_spi_t *SPI_Monarch_Obj;
  */
 static void hw04_semaphores_init(void)
 {
-    /* ADD CODE */
+    /* Create the semaphore used to protect I2C bus access. */
+    I2C_Monarch_Semaphore = xSemaphoreCreateBinary();
+    if(I2C_Monarch_Semaphore == NULL)
+    {
+        printf("Failed to create I2C semaphore!\n\r");
+        for(int i = 0; i < 100000; i++) {}
+        CY_ASSERT(0);
+    }
+
+    /* Give the I2C semaphore once so the first take can succeed. */
+    xSemaphoreGive(I2C_Monarch_Semaphore);
+
+    /* Create the semaphore used to protect SPI bus access. */
+    SPI_Monarch_Semaphore = xSemaphoreCreateBinary();
+    if(SPI_Monarch_Semaphore == NULL)
+    {
+        printf("Failed to create SPI semaphore!\n\r");
+        for(int i = 0; i < 100000; i++) {}
+        CY_ASSERT(0);
+    }
+
+    /* Give the SPI semaphore once so the first take can succeed. */
+    xSemaphoreGive(SPI_Monarch_Semaphore);
 }   
 
 /* If you are going to create any queues outside of the tasks 
@@ -47,7 +72,7 @@ static void hw04_semaphores_init(void)
 */
 static void hw04_queues_init(void)
 {
-    /* ADD CODE */
+    /* Queue creation is handled by each task resource init function. */
 }   
 
 /*************************************************
@@ -57,18 +82,22 @@ static void hw04_queues_init(void)
  ************************************************/
 void app_init_hw(void)
 {
-    cy_rslt_t rslt;
-
     console_init();
-    // Set text color to black
-    printf("\x1b[30m");
-    printf("\x1b[2J\x1b[;H");
-    printf("**************************************************\n\r");
-    printf("* %s\n\r", APP_DESCRIPTION);
-    printf("* Date: %s\n\r", __DATE__);
-    printf("* Time: %s\n\r", __TIME__);
-    printf("* Name:%s\n\r", NAME);
-    printf("**************************************************\n\r");
+
+    // Print the startup banner exactly once, even if init is called again.
+    if(!hw04_banner_printed)
+    {
+        // Set text color to black
+        printf("\x1b[30m");
+        printf("\x1b[2J\x1b[;H");
+        printf("**************************************************\n\r");
+        printf("* %s\n\r", APP_DESCRIPTION);
+        printf("* Date: %s\n\r", __DATE__);
+        printf("* Time: %s\n\r", __TIME__);
+        printf("* Name: %s\n\r", NAME);
+        printf("**************************************************\n\r");
+        hw04_banner_printed = true;
+    }
 
     /* Initialize the I2C interface */
     I2C_Monarch_Obj = i2c_init(PIN_I2C_SDA, PIN_I2C_SCL);
@@ -87,6 +116,9 @@ void app_init_hw(void)
         for(int i = 0; i < 100000; i++) {}
         CY_ASSERT(0);
     }
+
+    /* Initialize the EEPROM chip select pin. */
+    cyhal_gpio_init(PIN_SPI_EEPROM_CS, CYHAL_GPIO_DIR_OUTPUT, CYHAL_GPIO_DRIVE_STRONG, 1);
 
 }
 
@@ -116,7 +148,26 @@ void app_main(void)
     }
 
     /* Start any other tasks required to complete this homework */
-    /* ADD CODE */
+    rslt = task_eeprom_resources_init(&SPI_Monarch_Semaphore, SPI_Monarch_Obj, PIN_SPI_EEPROM_CS);
+    if (!rslt)
+    {
+        printf("EEPROM Task resource initialization failed!\n\r");
+        for(int i = 0; i < 100000; i++) {}
+        CY_ASSERT(0);
+    }
+
+    rslt = task_cap_touch_resources_init(
+        NULL,
+        I2C_Monarch_Semaphore,
+        I2C_Monarch_Obj,
+        NC
+    );
+    if (!rslt)
+    {
+        printf("Cap Touch Task resource initialization failed!\n\r");
+        for(int i = 0; i < 100000; i++) {}
+        CY_ASSERT(0);
+    }
 
 
     /* Start the scheduler*/

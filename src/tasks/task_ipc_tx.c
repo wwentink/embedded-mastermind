@@ -35,7 +35,6 @@ void task_ipc_tx(void *param)
 
     while(1)
     {
-        /* ADD CODE */
 
         /* Receive the IPC packet from the queue */
         if(xQueueReceive(Queue_IPC_Tx, &packet, portMAX_DELAY) == pdTRUE)

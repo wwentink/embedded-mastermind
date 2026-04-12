@@ -27,58 +27,15 @@
 void console_event_handler(void *handler_arg, cyhal_uart_event_t event)
 {
     (void)handler_arg;
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    uint8_t c;
 
+    // Console command RX is handled by task-level polling in task_console_rx().
+    // Leave RX interrupts disabled so ISR does not consume command bytes.
     if ((event & CYHAL_UART_IRQ_RX_NOT_EMPTY) == CYHAL_UART_IRQ_RX_NOT_EMPTY)
     {
-        // Read in the character
-        cyhal_uart_getc(&cy_retarget_io_uart_obj, &c, 0);
-
-        // Echo the character to the hardware FIFO
-        cyhal_uart_putc(&cy_retarget_io_uart_obj, c);
-
-        // If character is equal to backspace or the delete key
-        // remove the last character the array
-        if (c == '\b' || c == 127)
-        {
-            // ADD CODE
-            if (produce_console_buffer->index > 0)
-            {
-                produce_console_buffer->index--;
-            }
-        }
-
-        // else if the current character is the \n or \r
-        // Null terminate the string
-        // and send a task notification to the bottom half task
-        else if (c == '\n' || c == '\r')
-        {
-            produce_console_buffer->data[produce_console_buffer->index] = '\0';
-
-            // Swap the roles of the produce and consume buffer
-            console_buffer_t *temp = produce_console_buffer;
-            produce_console_buffer = consume_console_buffer;
-            consume_console_buffer = temp;
-            produce_console_buffer->index = 0;
-            
-            vTaskNotifyGiveFromISR(TaskHandle_Console_Rx, &xHigherPriorityTaskWoken);
-            portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-        }
-
-        // else add the character to the buffer and increment the index
-        else {
-            if (produce_console_buffer->index < (CONSOLE_MAX_MESSAGE_LENGTH - 1))
-            {
-                produce_console_buffer->data[produce_console_buffer->index] = c;
-                produce_console_buffer->index++;
-            }
-        }
-
+        // Do nothing
     }
     if ((event & CYHAL_UART_IRQ_TX_EMPTY) == CYHAL_UART_IRQ_TX_EMPTY)
     {
-        /* ADD CODE */
 
         // If the CB is empty, disable TX Empty Interrupts
         if (circular_buffer_empty(circular_buffer_tx))
@@ -128,12 +85,7 @@ bool task_console_init(void)
     }
     else
     {
-        // Enable UART Rx Interrupts
-        cyhal_uart_enable_event(
-            &cy_retarget_io_uart_obj, 
-            CYHAL_UART_IRQ_RX_NOT_EMPTY, 
-            7, 
-            true);
+        // RX command capture is performed in task_console_rx() polling path.
     }
     
     return true; // Initialization successful

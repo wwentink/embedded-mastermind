@@ -43,7 +43,6 @@ bool system_sensors_get_imu(QueueHandle_t return_queue, int16_t imu_data[3])
         return false;
     }
 
-    /* ADD CODE */
 
     return true;
 }

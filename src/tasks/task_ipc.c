@@ -132,7 +132,6 @@ bool validate_packet(ipc_packet_t *packet)
 /********************************************************************/
 /* Helper Functions for sending IPC packets                         */
 /********************************************************************/
-/* ADD CODE */
 /* Look at task_ipc.h to find the list of helper functions */
 bool ipc_send_discovery(uint16_t sequence_num) {
     ipc_packet_t packet = {

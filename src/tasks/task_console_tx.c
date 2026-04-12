@@ -52,7 +52,6 @@ void task_console_tx(void *param)
 
     while (1)
     {
-        /* ADD CODE */
 
         // Wait for console_buffer_t messages from the queue
         if (xQueueReceive(xQueue_Console_Tx, &tx_msg, portMAX_DELAY) == pdPASS)
@@ -72,7 +71,17 @@ void task_console_tx(void *param)
                 taskEXIT_CRITICAL();
             }
 
-            // Enable the Trasmit Empty Interrupts
+            // Prime the first byte so the TX-empty ISR can drain the remainder.
+            taskENTER_CRITICAL();
+            if(!circular_buffer_empty(circular_buffer_tx))
+            {
+                char first_byte;
+                circular_buffer_remove(circular_buffer_tx, &first_byte);
+                cyhal_uart_putc(&cy_retarget_io_uart_obj, first_byte);
+            }
+            taskEXIT_CRITICAL();
+
+            // Enable the Transmit Empty Interrupts for remaining buffered bytes.
             cyhal_uart_enable_event(&cy_retarget_io_uart_obj, CYHAL_UART_IRQ_TX_EMPTY, 1, 1);
 
             // Free the data was sent from the console_buffer_t
@@ -93,7 +102,6 @@ bool task_console_resources_init_tx(void)
 {
     BaseType_t rslt = pdPASS;
 
-    /* ADD CODE */
     // Initialize the Tx FreeRTOS gatekeeper task
     rslt = xTaskCreate(
         task_console_tx,          // Task function
@@ -138,7 +146,6 @@ void task_console_printf(char *str_ptr, ...)
     uint32_t length = 0;
     va_list args;
 
-    /* ADD CODE */
     /* Allocate the message buffer */
     message_buffer = (char *)pvPortMalloc(CONSOLE_MAX_MESSAGE_LENGTH);
     
@@ -155,11 +162,9 @@ void task_console_printf(char *str_ptr, ...)
 
         va_end(args);
 
-        /* ADD CODE */
         /* Initialize the console buffer */
         console_buffer.data = message_buffer;
 
-        /* ADD CODE */
         /* The receiver task is responsible to free the memory from here on */
         xQueueSend(xQueue_Console_Tx, &console_buffer, portMAX_DELAY);
 

@@ -73,6 +73,8 @@ cy_rslt_t joystick_init(void)
         return rslt; // If the initialization fails, return the error code
     }
 
+    return CY_RSLT_SUCCESS;
+
 }
 
 /** Read X direction of Joystick 
@@ -81,7 +83,6 @@ cy_rslt_t joystick_init(void)
  */
 uint16_t  joystick_read_x(void)
 {
-    /* ADD CODE */
     return cyhal_adc_read_u16(&joystick_adc_chan_x_obj);
 
 }
@@ -92,7 +93,6 @@ uint16_t  joystick_read_x(void)
  */
 uint16_t  joystick_read_y(void)
 {
-    /* ADD CODE */
     return cyhal_adc_read_u16(&joystick_adc_chan_y_obj);
 
 }
