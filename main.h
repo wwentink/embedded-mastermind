@@ -64,10 +64,11 @@
 //#define ICE11       /* In-Class Exercise -- FreeRTOS IPC UART Tx/Rx  */
 //#define ICE12       /* In-Class Exercise -- FreeRTOS IMU SPI Driver  */
 //#define ICE13         /* In-Class Exercise -- FreeRTOS I2C Light Sensor  */
-#define ICE14       /* In-Class Exercise -- FreeRTOS I2C Temp Sensor  */
+//#define ICE14       /* In-Class Exercise -- FreeRTOS I2C Temp Sensor  */
 //#define HW01
 //#define HW02
 //#define HW03
+#define HW04         /* Homework 04 - FreeRTOS CLI */
 
 extern char NAME[];
 extern char APP_DESCRIPTION[];
