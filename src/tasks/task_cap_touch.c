@@ -21,6 +21,36 @@ static SemaphoreHandle_t    I2C_Semaphore = NULL;
 static cyhal_i2c_t         *I2C_Obj = NULL;
 static cyhal_gpio_t        Cap_Touch_Int_Pin = NC;
 
+/* Rotate raw touch readings into the LCD coordinate frame. */
+#define CAP_TOUCH_RAW_X_MAX   239U
+#define CAP_TOUCH_RAW_Y_MAX   319U
+
+static uint16_t cap_touch_scale_to_range(uint16_t value, uint16_t in_max, uint16_t out_max)
+{
+    if(value >= in_max)
+    {
+        return out_max;
+    }
+
+    return (uint16_t)(((uint32_t)value * out_max) / in_max);
+}
+
+static void cap_touch_rotate_ccw(uint16_t raw_x, uint16_t raw_y, uint16_t *screen_x, uint16_t *screen_y)
+{
+    uint16_t scaled_x = cap_touch_scale_to_range(raw_y, CAP_TOUCH_RAW_Y_MAX, LCD_ROWS - 1U);
+    uint16_t scaled_y = cap_touch_scale_to_range(raw_x, CAP_TOUCH_RAW_X_MAX, LCD_COLS - 1U);
+
+    if(screen_x != NULL)
+    {
+        *screen_x = scaled_x;
+    }
+
+    if(screen_y != NULL)
+    {
+        *screen_y = (LCD_COLS - 1U) - scaled_y;
+    }
+}
+
 void task_cap_touch(void *param)
 {
     (void)param; // Unused parameter
@@ -51,9 +81,14 @@ void task_cap_touch(void *param)
             {
                 if(cap_touch_get_xy_position(I2C_Obj, &x_pos, &y_pos))
                 {
+                    uint16_t screen_x = 0;
+                    uint16_t screen_y = 0;
+
+                    cap_touch_rotate_ccw(x_pos, y_pos, &screen_x, &screen_y);
+
                     response_packet.status = DEVICE_OPERATION_STATUS_READ_SUCCESS;
-                    response_packet.payload.cap_touch[0] = x_pos;
-                    response_packet.payload.cap_touch[1] = y_pos;
+                    response_packet.payload.cap_touch[0] = screen_x;
+                    response_packet.payload.cap_touch[1] = screen_y;
                 }
             }
 
