@@ -26,7 +26,7 @@ char APP_DESCRIPTION[] = "ECE353: ICE 11 - FreeRTOS IPC Rx/Tx";
 /* Global Variables                                                          */
 /*****************************************************************************/
 EventGroupHandle_t ECE353_RTOS_Events = NULL;
-
+QueueHandle_t Queue_Light_Sensor_Responses = NULL;
 /*****************************************************************************/
 /* Function Declarations                                                     */
 /*****************************************************************************/
