@@ -33,27 +33,6 @@ QueueHandle_t Queue_Requests_Joystick = NULL;
 /* Queue for LCD requests */
 QueueHandle_t Queue_LCD_Request = NULL;
 
-static void hw05_semaphores_init(void)
-{
-    I2C_Monarch_Semaphore = xSemaphoreCreateBinary();
-    if(I2C_Monarch_Semaphore == NULL)
-    {
-        printf("Failed to create I2C semaphore!\n\r");
-        for(int i = 0; i < 100000; i++) {}
-        CY_ASSERT(0);
-    }
-    xSemaphoreGive(I2C_Monarch_Semaphore);
-
-    SPI_Monarch_Semaphore = xSemaphoreCreateBinary();
-    if(SPI_Monarch_Semaphore == NULL)
-    {
-        printf("Failed to create SPI semaphore!\n\r");
-        for(int i = 0; i < 100000; i++) {}
-        CY_ASSERT(0);
-    }
-    xSemaphoreGive(SPI_Monarch_Semaphore);
-}
-
 // state machine variables
 typedef enum {
     IDLE,
@@ -140,17 +119,6 @@ static void send_message_to_lcd(const char *message)
     xQueueSend(Queue_LCD_Request, &lcd_request, pdMS_TO_TICKS(100));
 }
 
-static void send_status_to_lcd(const char *status)
-{
-    char padded[32];
-
-    memset(padded, ' ', sizeof(padded));
-    padded[sizeof(padded) - 1] = '\0';
-    strncpy(padded, status, sizeof(padded) - 1);
-
-    send_message_to_lcd(padded);
-}
-
 /**
  * @brief
  * Initialize the game board: draw all tiles
@@ -210,11 +178,6 @@ void discover_board(uint16_t *sequence_num)
 {
     bool discovery_complete = false;
 
-    if(sequence_num == NULL)
-    {
-        return;
-    }
-
     /* Clear any stale IPC events/ACK state before we begin discovery retries. */
     xEventGroupClearBits(
         ECE353_RTOS_Events,
@@ -224,7 +187,7 @@ void discover_board(uint16_t *sequence_num)
     taskENTER_CRITICAL();
     IPC_Ack_Sequence_Valid = false;
     taskEXIT_CRITICAL();
-
+    
     while(discovery_complete == false)
     {
         EventBits_t events;
@@ -271,157 +234,47 @@ void discover_board(uint16_t *sequence_num)
  */
 
 void task_hw05_system_control(void *pvParameters) {
-    (void)pvParameters;
+        (void)pvParameters; // Unused parameter
+    
+        /* Implement the state machine for HW05 here. You may create helper functions
+        * to break up the code if you wish, but all state machine logic should be contained
+        * in this function. */
 
-    hw05_state_t current_state = IDLE;
-    hw05_state_t previous_state = WINNER;
-    bool state_entry = true;
+        hw05_state_t current_state = IDLE;
 
-    uint16_t sequence_num = 0;
-    TickType_t state_entry_tick = 0;
-    uint8_t active_cypher_col = 0;
-    uint8_t active_data_col = 0;
-    uint8_t input_tile_digits[8] = {0, 1, 2, 3, 4, 5, 6, 7};
-    const EventBits_t input_events =
-        ECE353_EVENT_SW1_PRESSED | ECE353_EVENT_SW3_PRESSED;
-
-    while (1)
-    {
-        if(current_state != previous_state)
-        {
-            task_console_printf("STATE: %d -> %d\r\n", previous_state, current_state);
-            previous_state = current_state;
-            state_entry = true;
-            state_entry_tick = xTaskGetTickCount();
-        }
-
-        EventBits_t events = xEventGroupWaitBits(
-            ECE353_RTOS_Events,
-            input_events,
-            pdTRUE,
-            pdFALSE,
-            pdMS_TO_TICKS(100)
-        );
-
-        switch (current_state)
-        {
-            case IDLE:
-                if(state_entry)
-                {
-                    send_status_to_lcd("HW05 IDLE -> SYNC");
-                    state_entry = false;
-                }
-
-                current_state = SYNC;
-                break;
-
-            case SYNC:
-                if(state_entry)
-                {
-                    send_status_to_lcd("SYNC: Discovering");
-                    state_entry = false;
-                }
-
-                discover_board(&sequence_num);
-                current_state = PICK_CYPHER;
-                break;
-
-            case PICK_CYPHER:
-                if(state_entry)
-                {
-                    active_cypher_col = 0;
-                    active_data_col = 0;
-                    initialize_board(active_cypher_col, active_data_col, input_tile_digits);
-                    send_status_to_lcd("PICK CYPHER SW1");
-                    state_entry = false;
-                }
-
-                if(events & ECE353_EVENT_SW1_PRESSED)
-                {
-                    current_state = GUESSING_1;
-                }
-                else if((xTaskGetTickCount() - state_entry_tick) > pdMS_TO_TICKS(6000))
-                {
-                    current_state = GUESSING_1;
-                }
-                break;
-
-            case GUESSING_1:
-                if(state_entry)
-                {
-                    send_status_to_lcd("GUESSING 1 ACTIVE");
-                    send_tile_inverted_to_lcd(LCD_TILE_ROW_NUM_0_3, active_data_col, input_tile_digits[active_data_col],
-                        DATA_ACTIVE_FG, DATA_ACTIVE_BG);
-                    state_entry = false;
-                }
-
-                if(events & ECE353_EVENT_SW1_PRESSED)
-                {
-                    current_state = GUESSING_2;
-                }
-                else if((xTaskGetTickCount() - state_entry_tick) > pdMS_TO_TICKS(4000))
-                {
-                    current_state = GUESSING_2;
-                }
-                break;
-
-            case GUESSING_2:
-                if(state_entry)
-                {
-                    send_status_to_lcd("GUESSING 2 WAITING");
-                    state_entry = false;
-                }
-
-                if(events & ECE353_EVENT_SW1_PRESSED)
-                {
-                    current_state = FEEDBACK;
-                }
-                else if((xTaskGetTickCount() - state_entry_tick) > pdMS_TO_TICKS(4000))
-                {
-                    current_state = FEEDBACK;
-                }
-                break;
-
-            case FEEDBACK:
-                if(state_entry)
-                {
-                    send_status_to_lcd("FEEDBACK SW1 next");
-                    state_entry = false;
-                }
-
-                if(events & ECE353_EVENT_SW3_PRESSED)
-                {
+        while (1) {
+            switch (current_state) {
+                case IDLE:
+                    // Initialize hardware resources
+                    app_init_hw();
+                    current_state = SYNC;
+                    break;
+                case SYNC:
+                    // Perform board discovery
+                    uint16_t sequence_num = 0;
+                    discover_board(&sequence_num);
                     current_state = PICK_CYPHER;
-                }
-                else if((events & ECE353_EVENT_SW1_PRESSED) ||
-                        ((xTaskGetTickCount() - state_entry_tick) > pdMS_TO_TICKS(3000)))
-                {
-                    current_state = WINNER;
-                }
-                break;
-
-            case WINNER:
-                if(state_entry)
-                {
-                    send_status_to_lcd("WINNER SW3 restart");
-                    state_entry = false;
-                }
-
-                if(events & ECE353_EVENT_SW3_PRESSED)
-                {
-                    current_state = IDLE;
-                }
-                else if((xTaskGetTickCount() - state_entry_tick) > pdMS_TO_TICKS(7000))
-                {
-                    current_state = IDLE;
-                }
-                break;
-
-            default:
-                current_state = IDLE;
-                break;
+                    break;
+                case PICK_CYPHER:
+                    // Implement cypher selection logic
+                    break;
+                case GUESSING_1:
+                    // Implement first guessing logic
+                    break;
+                case GUESSING_2:
+                    // Implement second guessing logic
+                    break;
+                case FEEDBACK:
+                    // Implement feedback logic
+                    break;
+                case WINNER:
+                    // Implement winner logic
+                    break;
+                default:
+                    // Handle unexpected state
+                    break;
+            }
         }
-    }
 }   
 
 /*************************************************
@@ -505,8 +358,31 @@ void app_init_hw(void)
 void app_main(void)
 {
     bool rslt; 
+    
+    /* Start any other tasks required to complete this homework */
 
-    hw05_semaphores_init();
+    //Start eeprom task
+    rslt = task_eeprom_resources_init(&SPI_Monarch_Semaphore, SPI_Monarch_Obj, PIN_SPI_EEPROM_CS);
+    if (!rslt)
+    {
+        printf("EEPROM Task resource initialization failed!\n\r");
+        for(int i = 0; i < 100000; i++) {}
+        CY_ASSERT(0);
+    }
+
+    //Start cap touch task
+    rslt = task_cap_touch_resources_init(
+        NULL,
+        I2C_Monarch_Semaphore,
+        I2C_Monarch_Obj,
+        NC
+    );
+    if (!rslt)
+    {
+        printf("Cap Touch Task resource initialization failed!\n\r");
+        for(int i = 0; i < 100000; i++) {}
+        CY_ASSERT(0);
+    }
 
     /* Create the event group for RTOS events */
     ECE353_RTOS_Events = xEventGroupCreate();
@@ -546,16 +422,6 @@ void app_main(void)
     }
     printf("LCD task created\n\r");
 
-    /* Initialize the console task before any task uses task_console_printf. */
-    rslt = task_console_init();
-    if (!rslt)
-    {
-        printf("Console Task resource initialization failed!\n\r");
-        for(int i = 0; i < 100000; i++) {}
-        CY_ASSERT(0);
-    }
-    printf("Console task created\n\r");
-
     /* Initialize and create the button task */
     if (!task_button_init())
     {
@@ -582,40 +448,6 @@ void app_main(void)
         CY_ASSERT(0);
     }
     printf("Joystick task created\n\r");
-
-    /* IPC is required for SYNC discovery state progression. */
-    if(!task_ipc_init())
-    {
-        printf("IPC initialization failed!\n\r");
-        for(int i = 0; i < 100000; i++) {}
-        CY_ASSERT(0);
-    }
-    printf("IPC tasks created\n\r");
-
-    /* Start eeprom task */
-    rslt = task_eeprom_resources_init(&SPI_Monarch_Semaphore, SPI_Monarch_Obj, PIN_SPI_EEPROM_CS);
-    if (!rslt)
-    {
-        printf("EEPROM Task resource initialization failed!\n\r");
-        for(int i = 0; i < 100000; i++) {}
-        CY_ASSERT(0);
-    }
-    printf("EEPROM task created\n\r");
-
-    /* Start cap touch task */
-    rslt = task_cap_touch_resources_init(
-        NULL,
-        I2C_Monarch_Semaphore,
-        I2C_Monarch_Obj,
-        NC
-    );
-    if (!rslt)
-    {
-        printf("Cap Touch Task resource initialization failed!\n\r");
-        for(int i = 0; i < 100000; i++) {}
-        CY_ASSERT(0);
-    }
-    printf("Cap touch task created\n\r");
 
     /* Create the system control task */
     BaseType_t result = xTaskCreate(

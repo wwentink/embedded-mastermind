@@ -72,14 +72,25 @@ void task_ipc_rx(void *param)
                     ipc_send_ack(IPC_Rx_Consume_Buffer->sequence_num);
                     break;
                 case IPC_CMD_ACK:
-                    printf("Received ACK for sequence number: %d!\n\r", IPC_Rx_Consume_Buffer->sequence_num);
-
                     taskENTER_CRITICAL();
-                    IPC_Last_Ack_Sequence = IPC_Rx_Consume_Buffer->sequence_num;
-                    IPC_Ack_Sequence_Valid = true;
-                    taskEXIT_CRITICAL();
+                    if(IPC_Rx_Consume_Buffer->sequence_num == IPC_Last_Tx_Sequence)
+                    {
+                        IPC_Last_Ack_Sequence = IPC_Rx_Consume_Buffer->sequence_num;
+                        IPC_Ack_Sequence_Valid = true;
+                        taskEXIT_CRITICAL();
 
-                    xEventGroupSetBits(ECE353_RTOS_Events, ECE353_RTOS_EVENTS_IPC_ACK_RECEIVED);
+                        printf("Received ACK for sequence number: %d!\n\r", IPC_Rx_Consume_Buffer->sequence_num);
+                        xEventGroupSetBits(ECE353_RTOS_Events, ECE353_RTOS_EVENTS_IPC_ACK_RECEIVED);
+                    }
+                    else
+                    {
+                        taskEXIT_CRITICAL();
+                        printf(
+                            "Ignoring stray ACK seq:%d expected:%d\n\r",
+                            IPC_Rx_Consume_Buffer->sequence_num,
+                            IPC_Last_Tx_Sequence
+                        );
+                    }
                     break;
                 default:
                     printf("Received IPC Packet with unknown command: %d\n\r", IPC_Rx_Consume_Buffer->cmd);
