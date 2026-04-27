@@ -37,6 +37,20 @@ volatile uint16_t IPC_Last_Ack_Sequence = 0;
 volatile bool IPC_Ack_Sequence_Valid = false;
 volatile ipc_packet_t IPC_Last_Rx_Packet;
 volatile bool IPC_Last_Rx_Packet_Valid = false;
+volatile uint8_t IPC_Rx_Raw_Data_Index = 0;
+
+void ipc_reset_link_state(void)
+{
+    taskENTER_CRITICAL();
+    IPC_Last_Ack_Sequence = 0U;
+    IPC_Ack_Sequence_Valid = false;
+    IPC_Last_Rx_Packet_Valid = false;
+    IPC_Rx_Raw_Data_Index = 0U;
+    taskEXIT_CRITICAL();
+
+    /* Flush any bytes currently buffered by the UART peripheral. */
+    (void)cyhal_uart_clear(&IPC_Uart_Obj);
+}
 
 static bool ipc_cmd_is_valid(ipc_cmd_t cmd)
 {
@@ -395,7 +409,6 @@ void ipc_event_handler(void *handler_arg, cyhal_uart_event_t event)
     (void)handler_arg;
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     uint8_t c;
-    static uint8_t raw_data_index = 0;
 
     if ((event & CYHAL_UART_IRQ_RX_NOT_EMPTY) == CYHAL_UART_IRQ_RX_NOT_EMPTY)
     {
@@ -403,7 +416,7 @@ void ipc_event_handler(void *handler_arg, cyhal_uart_event_t event)
         cyhal_uart_getc(&IPC_Uart_Obj, &c, 0);
 
         // If we are waiting for the first byte, only accept IPC_PACKET_START.
-        if ((raw_data_index == 0) && (c != IPC_PACKET_START))
+        if ((IPC_Rx_Raw_Data_Index == 0) && (c != IPC_PACKET_START))
         {
             // Ignore bytes until the start byte arrives.
         }
@@ -411,18 +424,18 @@ void ipc_event_handler(void *handler_arg, cyhal_uart_event_t event)
         // Else store the byte in the current produce buffer.
         else
         {
-            ((uint8_t*)IPC_Rx_Produce_Buffer)[raw_data_index] = c;
-            raw_data_index++;
+            ((uint8_t*)IPC_Rx_Produce_Buffer)[IPC_Rx_Raw_Data_Index] = c;
+            IPC_Rx_Raw_Data_Index++;
 
             // If an entire IPC packet has been received, swap buffers and notify Rx task.
-            if (raw_data_index >= sizeof(ipc_packet_t))
+            if (IPC_Rx_Raw_Data_Index >= sizeof(ipc_packet_t))
             {
                 volatile ipc_packet_t* completed_packet = IPC_Rx_Produce_Buffer;
 
                 IPC_Rx_Produce_Buffer = IPC_Rx_Consume_Buffer;
                 IPC_Rx_Consume_Buffer = completed_packet;
 
-                raw_data_index = 0;
+                IPC_Rx_Raw_Data_Index = 0;
 
                 vTaskNotifyGiveFromISR(TaskHandle_IPC_Rx, &xHigherPriorityTaskWoken);
                 portYIELD_FROM_ISR(xHigherPriorityTaskWoken);

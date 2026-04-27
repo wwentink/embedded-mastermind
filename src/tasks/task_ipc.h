@@ -114,6 +114,7 @@ extern volatile bool IPC_Ack_Sequence_Valid;
 bool task_ipc_resources_init_rx(void);
 bool task_ipc_resources_init_tx(void);
 bool task_ipc_init(void);
+void ipc_reset_link_state(void);
 
 /**
  * @brief 

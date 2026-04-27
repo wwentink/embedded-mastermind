@@ -32,6 +32,9 @@ static QueueHandle_t Queue_Light_Sensor_Responses = NULL;
 static bool hw05_banner_printed = false;
 
 #define HW05_BLANK_DIGIT  (0xFFU)
+#define HW05_TILE_LIGHT_BLUE (0xAEDC)
+#define HW05_TILE_PURPLE     (0x780F)
+#define HW05_TILE_PINK       (0xFB1A)
 
 /*****************************************************************************/
 /* Local Helpers                                                             */
@@ -76,14 +79,29 @@ static void hw05_format_high_score(uint16_t score, char *buffer, size_t buffer_s
     }
 }
 
-static uint16_t hw05_theme_fg(hw05_theme_t theme)
-{
-    return (theme == HW05_THEME_LIGHT) ? LCD_COLOR_BLACK : LCD_COLOR_WHITE;
-}
-
 static uint16_t hw05_theme_bg(hw05_theme_t theme)
 {
     return (theme == HW05_THEME_LIGHT) ? LCD_COLOR_WHITE : LCD_COLOR_BLACK;
+}
+
+static uint16_t hw05_tile_bg_color(hw05_theme_t theme, lcd_row_t row)
+{
+    if(row == LCD_TILE_ROW_CYPHER)
+    {
+        return HW05_TILE_PINK;
+    }
+
+    return (theme == HW05_THEME_LIGHT) ? HW05_TILE_LIGHT_BLUE : HW05_TILE_PURPLE;
+}
+
+static uint16_t hw05_tile_fg_color(hw05_theme_t theme, lcd_row_t row)
+{
+    if(row == LCD_TILE_ROW_CYPHER)
+    {
+        return LCD_COLOR_WHITE;
+    }
+
+    return (theme == HW05_THEME_LIGHT) ? LCD_COLOR_BLACK : LCD_COLOR_WHITE;
 }
 
 static bool hw05_send_lcd_request(const lcd_msg_t *msg)
@@ -101,10 +119,11 @@ static bool hw05_send_lcd_request(const lcd_msg_t *msg)
     return (xQueueSend(xQueue_Request_LCD, &request, portMAX_DELAY) == pdPASS);
 }
 
-static bool hw05_lcd_clear(void)
+static bool hw05_lcd_clear(hw05_theme_t theme)
 {
     lcd_msg_t msg = {0};
     msg.command = LCD_CMD_CLEAR_SCREEN;
+    msg.payload.tile.color_bg = hw05_theme_bg(theme);
     return hw05_send_lcd_request(&msg);
 }
 
@@ -137,8 +156,8 @@ static bool hw05_lcd_draw_tile(lcd_row_t row, uint8_t col, uint8_t number, bool 
     tile->row = row;
     tile->col = col;
     tile->number = number;
-    tile->color_fg = hw05_theme_fg(theme);
-    tile->color_bg = hw05_theme_bg(theme);
+    tile->color_fg = hw05_tile_fg_color(theme, row);
+    tile->color_bg = hw05_tile_bg_color(theme, row);
 
     return hw05_send_lcd_request(&msg);
 }
@@ -182,7 +201,7 @@ static void hw05_render_input_screen(
     bool show_palette
 )
 {
-    (void)hw05_lcd_clear();
+    (void)hw05_lcd_clear(theme);
     (void)hw05_lcd_print(status);
     hw05_render_entry_row(theme, digits, digit_count, cursor);
 
@@ -192,9 +211,9 @@ static void hw05_render_input_screen(
     }
 }
 
-static void hw05_render_message_screen(const char *status)
+static void hw05_render_message_screen(hw05_theme_t theme, const char *status)
 {
-    (void)hw05_lcd_clear();
+    (void)hw05_lcd_clear(theme);
     (void)hw05_lcd_print(status);
 }
 
@@ -267,8 +286,15 @@ static bool hw05_read_high_score(uint16_t *score)
 {
     uint8_t low_byte = 0U;
     uint8_t high_byte = 0U;
+    uint8_t magic = 0U;
+    uint16_t value = HW05_EEPROM_HIGH_SCORE_UNSET;
 
     if(score == NULL)
+    {
+        return false;
+    }
+
+    if(!system_sensors_eeprom_read(Queue_EEPROM_Responses, HW05_EEPROM_HIGH_SCORE_MAGIC_ADDR, &magic))
     {
         return false;
     }
@@ -283,7 +309,33 @@ static bool hw05_read_high_score(uint16_t *score)
         return false;
     }
 
-    *score = ((uint16_t)high_byte << 8) | low_byte;
+    value = ((uint16_t)high_byte << 8) | low_byte;
+
+    if(value == HW05_EEPROM_HIGH_SCORE_UNSET)
+    {
+        *score = HW05_EEPROM_HIGH_SCORE_UNSET;
+        return true;
+    }
+
+    /*
+     * Accept legacy records that only stored the 16-bit score value.
+     * The magic marker is used for robustness, but should not erase valid prior data.
+     */
+    if((magic != HW05_EEPROM_HIGH_SCORE_MAGIC) &&
+       (value >= HW05_HIGH_SCORE_MIN_VALID) &&
+       (value <= HW05_HIGH_SCORE_MAX_VALID))
+    {
+        *score = value;
+        return true;
+    }
+
+    if((value < HW05_HIGH_SCORE_MIN_VALID) || (value > HW05_HIGH_SCORE_MAX_VALID))
+    {
+        *score = HW05_EEPROM_HIGH_SCORE_UNSET;
+        return true;
+    }
+
+    *score = value;
     return true;
 }
 
@@ -291,6 +343,7 @@ static bool hw05_write_high_score(uint16_t score)
 {
     uint8_t low_byte = (uint8_t)(score & 0xFFU);
     uint8_t high_byte = (uint8_t)((score >> 8) & 0xFFU);
+    uint16_t verify_score = 0U;
 
     if(!system_sensors_eeprom_write(Queue_EEPROM_Responses, HW05_EEPROM_HIGH_SCORE_ADDR, low_byte))
     {
@@ -302,7 +355,21 @@ static bool hw05_write_high_score(uint16_t score)
         return false;
     }
 
-    return true;
+    if(!system_sensors_eeprom_write(
+        Queue_EEPROM_Responses,
+        HW05_EEPROM_HIGH_SCORE_MAGIC_ADDR,
+        HW05_EEPROM_HIGH_SCORE_MAGIC
+    ))
+    {
+        return false;
+    }
+
+    if(!hw05_read_high_score(&verify_score))
+    {
+        return false;
+    }
+
+    return (verify_score == score);
 }
 
 static bool hw05_read_ambient_light(uint16_t *ambient_light)
@@ -312,12 +379,14 @@ static bool hw05_read_ambient_light(uint16_t *ambient_light)
 
 static hw05_theme_t hw05_update_theme_from_light(uint16_t ambient_light, hw05_theme_t current_theme)
 {
-    if((current_theme == HW05_THEME_DARK) && (ambient_light > HW05_LIGHT_THRESHOLD))
+    if((current_theme == HW05_THEME_DARK) &&
+       (ambient_light > (HW05_LIGHT_THRESHOLD + HW05_LIGHT_HYSTERESIS)))
     {
         return HW05_THEME_LIGHT;
     }
 
-    if((current_theme == HW05_THEME_LIGHT) && (ambient_light <= HW05_LIGHT_THRESHOLD))
+    if((current_theme == HW05_THEME_LIGHT) &&
+       (ambient_light + HW05_LIGHT_HYSTERESIS < HW05_LIGHT_THRESHOLD))
     {
         return HW05_THEME_DARK;
     }
@@ -339,11 +408,7 @@ static void hw05_clear_ipc_sync_state(void)
         ECE353_RTOS_EVENTS_IPC_GAME_RESTART_RX
     );
 
-    taskENTER_CRITICAL();
-    IPC_Ack_Sequence_Valid = false;
-    IPC_Last_Ack_Sequence = 0U;
-    IPC_Last_Rx_Packet_Valid = false;
-    taskEXIT_CRITICAL();
+    ipc_reset_link_state();
 }
 
 static bool hw05_consume_rx_packet(ipc_cmd_t expected_cmd, ipc_packet_t *packet)
@@ -443,10 +508,11 @@ static void hw05_render_current_state(
     uint16_t local_guess_count,
     uint16_t peer_guess_count,
     uint8_t exact,
-    uint8_t misplaced
+    uint8_t misplaced,
+    bool passive_win
 )
 {
-    char status[32] = {0};
+    char status[128] = {0};
     char high_score_text[8] = {0};
 
     hw05_format_high_score(high_score, high_score_text, sizeof(high_score_text));
@@ -454,17 +520,17 @@ static void hw05_render_current_state(
     switch(state)
     {
         case HW05_STATE_INIT_AND_SYNC:
-            (void)snprintf(status, sizeof(status), "SYNC HS:%s", high_score_text);
-            hw05_render_message_screen(status);
+            (void)snprintf(status, sizeof(status), "SYNC STAGE Record:%s", high_score_text);
+            hw05_render_message_screen(theme, status);
             break;
 
         case HW05_STATE_SELECT_CIPHER:
-            (void)snprintf(status, sizeof(status), "CHOOSE HS:%s", high_score_text);
+            (void)snprintf(status, sizeof(status), "CHOOSE CIPHER Record:%s", high_score_text);
             hw05_render_input_screen(theme, status, entry, entry_count, cursor, true);
             break;
 
         case HW05_STATE_WAIT_FOR_PEER_READY:
-            (void)snprintf(status, sizeof(status), "SYNC PEER HS:%s", high_score_text);
+            (void)snprintf(status, sizeof(status), "SYNC CIPHER Record:%s", high_score_text);
             hw05_render_input_screen(theme, status, entry, entry_count, cursor, true);
             break;
 
@@ -474,39 +540,45 @@ static void hw05_render_current_state(
             break;
 
         case HW05_STATE_ACTIVE_WAIT_FEEDBACK:
-            (void)snprintf(status, sizeof(status), "FB E%u M%u", exact, misplaced);
+        case HW05_STATE_ACTIVE_VIEW_FEEDBACK:
+            (void)snprintf(status, sizeof(status), "Feedback\n\n\n\nExact:%u Misplaced:%u\nPress SW1 to continue", exact, misplaced);
             hw05_render_input_screen(theme, status, entry, HW05_GAME_DIGIT_COUNT, HW05_GAME_DIGIT_COUNT, false);
             break;
 
         case HW05_STATE_PASSIVE_WAIT_GUESS:
-            (void)snprintf(status, sizeof(status), "PASSIVE WAIT");
+            (void)snprintf(status, sizeof(status), "PASSIVE WAIT\n\n\n\nWaiting for opponent...");
             hw05_render_input_screen(theme, status, entry, entry_count, cursor, false);
             break;
 
         case HW05_STATE_PASSIVE_WAIT_TURN_END_ACK:
-            (void)snprintf(status, sizeof(status), "SWAP E%u M%u", exact, misplaced);
+            (void)snprintf(status, sizeof(status), "Swap\n\n\n\nExact:%u Misplaced:%u\nWaiting for opponent...", exact, misplaced);
             hw05_render_input_screen(theme, status, entry, HW05_GAME_DIGIT_COUNT, HW05_GAME_DIGIT_COUNT, false);
             break;
 
         case HW05_STATE_WAIT_GAME_OVER:
             (void)snprintf(status, sizeof(status), "WAIT OVER");
-            hw05_render_message_screen(status);
+            hw05_render_message_screen(theme, status);
             break;
 
         case HW05_STATE_GAME_OVER:
+        {
+            const char *result = passive_win ? "LOSER!" : "WINNER!";
+            
             (void)snprintf(
                 status,
                 sizeof(status),
-                "GAME YOU:%u PEER:%u",
+                "%s\nGUESSES YOU:%u PEER:%u\nPress SW2 to play again",
+                result,
                 (unsigned int)local_guess_count,
                 (unsigned int)peer_guess_count
             );
-            hw05_render_message_screen(status);
+            hw05_render_message_screen(theme, status);
             break;
+        }
 
         default:
             (void)snprintf(status, sizeof(status), "HW05");
-            hw05_render_message_screen(status);
+            hw05_render_message_screen(theme, status);
             break;
     }
 }
@@ -685,6 +757,7 @@ void task_hw05_system_control(void *pvParameters)
     bool touch_latched = false;
     uint16_t tx_sequence = 1U;
     TickType_t next_discovery_tick = 0U;
+    TickType_t startup_tick = xTaskGetTickCount();
 
     hw05_reset_digits(local_cipher);
     hw05_reset_digits(peer_cipher);
@@ -708,7 +781,8 @@ void task_hw05_system_control(void *pvParameters)
         local_guess_count,
         peer_guess_count,
         exact,
-        misplaced
+        misplaced,
+        passive_win
     );
     ui_dirty = false;
 
@@ -743,19 +817,23 @@ void task_hw05_system_control(void *pvParameters)
 
         if((events & ECE353_EVENT_SW3_PRESSED) && (state <= HW05_STATE_WAIT_FOR_PEER_READY))
         {
-            high_score = HW05_EEPROM_HIGH_SCORE_UNSET;
-            (void)hw05_write_high_score(high_score);
-            ui_dirty = true;
+            /* Ignore only very-early startup events to avoid stale/reset-edge artifacts. */
+            if((xTaskGetTickCount() - startup_tick) > pdMS_TO_TICKS(500U))
+            {
+                high_score = HW05_EEPROM_HIGH_SCORE_UNSET;
+
+                if(!hw05_write_high_score(high_score))
+                {
+                    printf("EEPROM reset failed.\n\r");
+                }
+
+                ui_dirty = true;
+            }
         }
 
         if(state == HW05_STATE_INIT_AND_SYNC)
         {
             TickType_t now_ticks = xTaskGetTickCount();
-
-            if((events & ECE353_RTOS_EVENTS_IPC_DISCOVERY_RX) != 0U)
-            {
-                sync_complete = true;
-            }
 
             if(now_ticks >= next_discovery_tick)
             {
@@ -838,22 +916,15 @@ void task_hw05_system_control(void *pvParameters)
                     if((high_score == HW05_EEPROM_HIGH_SCORE_UNSET) || (local_guess_count < high_score))
                     {
                         high_score = local_guess_count;
-                        (void)hw05_write_high_score(high_score);
+
+                        if(!hw05_write_high_score(high_score))
+                        {
+                            printf("EEPROM high-score update failed.\n\r");
+                        }
                     }
                 }
 
-                (void)ipc_send_game_turn_end_ack(tx_sequence++);
-                (void)ipc_wait_for_ack(250U);
-
-                if((packet.payload.game.flags & 0x01U) != 0U)
-                {
-                    state = HW05_STATE_WAIT_GAME_OVER;
-                }
-                else
-                {
-                    state = HW05_STATE_PASSIVE_WAIT_GUESS;
-                    hw05_reset_round_state(entry_digits, &entry_count, &entry_cursor, exact, misplaced);
-                }
+                state = HW05_STATE_ACTIVE_VIEW_FEEDBACK;
 
                 ui_dirty = true;
             }
@@ -902,9 +973,7 @@ void task_hw05_system_control(void *pvParameters)
 
         if((events & ECE353_RTOS_EVENTS_IPC_GAME_RESTART_RX) != 0U)
         {
-            ipc_packet_t packet = {0};
-
-            if(hw05_consume_rx_packet(IPC_CMD_GAME_RESTART, &packet))
+            if((state == HW05_STATE_GAME_OVER) || (state == HW05_STATE_WAIT_GAME_OVER))
             {
                 hw05_reset_game(
                     &state,
@@ -923,7 +992,8 @@ void task_hw05_system_control(void *pvParameters)
                     &local_goes_first
                 );
 
-                sync_complete = false;
+                state = HW05_STATE_SELECT_CIPHER;
+                sync_complete = true;
                 passive_win = false;
                 touch_latched = false;
                 next_discovery_tick = 0U;
@@ -972,6 +1042,23 @@ void task_hw05_system_control(void *pvParameters)
                 state = HW05_STATE_ACTIVE_WAIT_FEEDBACK;
                 ui_dirty = true;
             }
+            else if(state == HW05_STATE_ACTIVE_VIEW_FEEDBACK)
+            {
+                (void)ipc_send_game_turn_end_ack(tx_sequence++);
+                (void)ipc_wait_for_ack(250U);
+
+                if(exact == HW05_GAME_DIGIT_COUNT)
+                {
+                    state = HW05_STATE_WAIT_GAME_OVER;
+                }
+                else
+                {
+                    state = HW05_STATE_PASSIVE_WAIT_GUESS;
+                    hw05_reset_round_state(entry_digits, &entry_count, &entry_cursor, exact, misplaced);
+                }
+
+                ui_dirty = true;
+            }
         }
 
         if((events & ECE353_EVENT_SW2_PRESSED) != 0U)
@@ -986,13 +1073,16 @@ void task_hw05_system_control(void *pvParameters)
                     ui_dirty = true;
                 }
             }
-            else if(state == HW05_STATE_GAME_OVER)
+            else if((state == HW05_STATE_GAME_OVER) || (state == HW05_STATE_WAIT_GAME_OVER))
             {
-                (void)ipc_send_game_restart(tx_sequence++, 0U);
-
-                if(!ipc_wait_for_ack(250U))
+                /*
+                 * One SW2 press should restart both boards.
+                 * Broadcast restart a few times for link robustness, then reset locally.
+                 */
+                for(uint8_t attempt = 0U; attempt < 3U; attempt++)
                 {
-                    printf("RESTART ACK timeout.\n\r");
+                    (void)ipc_send_game_restart(tx_sequence++, 0U);
+                    (void)ipc_wait_for_ack(120U);
                 }
 
                 hw05_reset_game(
@@ -1012,7 +1102,8 @@ void task_hw05_system_control(void *pvParameters)
                     &local_goes_first
                 );
 
-                sync_complete = false;
+                state = HW05_STATE_SELECT_CIPHER;
+                sync_complete = true;
                 passive_win = false;
                 touch_latched = false;
                 next_discovery_tick = 0U;
@@ -1076,7 +1167,8 @@ void task_hw05_system_control(void *pvParameters)
                     local_guess_count,
                     peer_guess_count,
                     exact,
-                    misplaced
+                    misplaced,
+                    passive_win
                 );
             }
             else if(state == HW05_STATE_WAIT_GAME_OVER)
@@ -1091,7 +1183,8 @@ void task_hw05_system_control(void *pvParameters)
                     local_guess_count,
                     peer_guess_count,
                     exact,
-                    misplaced
+                    misplaced,
+                    passive_win
                 );
             }
             else
@@ -1106,7 +1199,8 @@ void task_hw05_system_control(void *pvParameters)
                     local_guess_count,
                     peer_guess_count,
                     exact,
-                    misplaced
+                    misplaced,
+                    passive_win
                 );
             }
 

@@ -23,6 +23,7 @@
 bool master_mind_handle_msg(lcd_msg_t* msg)
 {
     static bool tile_size_logged = false;   // Used for tile size verification
+    static uint16_t current_screen_bg = LCD_COLOR_BLACK;
 
     if (msg == NULL)
     {
@@ -52,8 +53,14 @@ bool master_mind_handle_msg(lcd_msg_t* msg)
             {
                 char c = str[i];
                 
+                // Handle newline
+                if (c == '\n')
+                {
+                    cx = 5;
+                    cy += Consolas_20ptFontInfo.height;
+                }
                 // Handle space and printable characters
-                if (c == ' ')
+                else if (c == ' ')
                 {
                     cx += Consolas_20ptFontInfo.space_width; // Advance by space width
                 }
@@ -70,8 +77,8 @@ bool master_mind_handle_msg(lcd_msg_t* msg)
                         char_width,
                         Consolas_20ptFontInfo.height,
                         Consolas_20ptBitmaps + Consolas_20ptFontInfo.char_info[char_index].offset,
-                        LCD_COLOR_WHITE,
-                        LCD_COLOR_BLACK,
+                        (current_screen_bg == LCD_COLOR_BLACK) ? LCD_COLOR_WHITE : LCD_COLOR_BLACK,
+                        current_screen_bg,
                         true
                     );
                     
@@ -135,13 +142,19 @@ bool master_mind_handle_msg(lcd_msg_t* msg)
                 return false;
             }
             
+            // Use a light gray for the selected tile background if the foreground is white
+            uint16_t highlight_bg = tile->color_fg;
+            if (highlight_bg == LCD_COLOR_WHITE) {
+                highlight_bg = 0xC618; // Light gray RGB565
+            }
+            
             // Draw the background rectangle (inverted colors)
             lcd_draw_rectangle(
                 rect.cx,
                 rect.cy,
                 rect.w,
                 rect.h,
-                tile->color_fg,  // Swapped: foreground as background
+                highlight_bg,  // Swapped: foreground as background
                 true  // centered
             );
             
@@ -155,7 +168,7 @@ bool master_mind_handle_msg(lcd_msg_t* msg)
                     FONT_CHAR_INFO_LARGE_NUMBERS[tile->number].height,
                     FONT_NUM_LARGE_BITMAPS + FONT_CHAR_INFO_LARGE_NUMBERS[tile->number].offset,
                     tile->color_bg,  // Swapped: background as foreground
-                    tile->color_fg,  // Swapped: foreground as background
+                    highlight_bg,  // Swapped: foreground as background
                     true  // centered
                 );
             }
@@ -165,7 +178,8 @@ bool master_mind_handle_msg(lcd_msg_t* msg)
         
         // Clear the entire screen
         case LCD_CMD_CLEAR_SCREEN:
-            lcd_clear_screen(LCD_COLOR_BLACK);
+            current_screen_bg = msg->payload.tile.color_bg;
+            lcd_clear_screen(current_screen_bg);
             return true;
         
         // Print SW1 count at position (10, 50)
