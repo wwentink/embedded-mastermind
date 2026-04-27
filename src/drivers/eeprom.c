@@ -12,6 +12,18 @@
 #include "cyhal_hw_types.h"
 #include <sys/types.h>
 
+static uint8_t eeprom_read_status_register(cyhal_spi_t *spi_obj, cyhal_gpio_t cs_pin)
+{
+	uint8_t tx_buffer[2] = {EEPROM_CMD_RDSR, 0x00};
+	uint8_t rx_buffer[2] = {0x00, 0x00};
+
+	cyhal_gpio_write(cs_pin, 0);
+	cyhal_spi_transfer(spi_obj, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer), 0xFF);
+	cyhal_gpio_write(cs_pin, 1);
+
+	return rx_buffer[1];
+}
+
 
 /** Determine if the EEPROM is busy writing the last
  *  transaction to non-volatile storage
@@ -22,24 +34,19 @@
  */
 void eeprom_wait_for_write(cyhal_spi_t *spi_obj, cyhal_gpio_t cs_pin)
 {
-	uint8_t tx_buffer[2] = {0x05, 0x00}; // Read Status Register command followed by a dummy byte
-	uint8_t rx_buffer[2] = {0x00, 0x00}; // Buffer to hold the response
+	uint32_t timeout = 100000U;
 
 	while(1)
 	{
-		// Pull CS low to select the EEPROM
-		cyhal_gpio_write(cs_pin, 0);
-
-		// Send the command to read the status register
-		cyhal_spi_transfer(spi_obj, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer), 0xFF);
-
-		// Pull CS high to deselect the EEPROM
-		cyhal_gpio_write(cs_pin, 1);
-
-		// Check if the Write In Progress (WIP) bit is set
-		if((rx_buffer[1] & EEPROM_CMD_WRSR) == 0)
+		/* Check if the Write In Progress (WIP) bit is clear. */
+		if((eeprom_read_status_register(spi_obj, cs_pin) & EEPROM_STATUS_WIP) == 0)
 		{
 			break; // WIP bit is clear, write is complete
+		}
+
+		if(timeout-- == 0U)
+		{
+			break;
 		}
 	}
 }
@@ -62,6 +69,15 @@ void eeprom_write_enable(cyhal_spi_t *spi_obj, cyhal_gpio_t cs_pin)
 
 	// Pull CS high to deselect the EEPROM
 	cyhal_gpio_write(cs_pin, 1);
+
+	/* Poll until the WEL bit is set before attempting a write command. */
+	for(uint32_t timeout = 100000U; timeout > 0U; timeout--)
+	{
+		if((eeprom_read_status_register(spi_obj, cs_pin) & EEPROM_STATUS_WEL) != 0)
+		{
+			break;
+		}
+	}
 }
 
 /** Disable Writes to the EEPROM

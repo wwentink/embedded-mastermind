@@ -43,6 +43,12 @@ extern EventGroupHandle_t ECE353_RTOS_Events;
 // IPC events
 #define ECE353_RTOS_EVENTS_IPC_ACK_RECEIVED   (1 << 8)   // Event bit for IPC ACK received
 #define ECE353_RTOS_EVENTS_IPC_DISCOVERY_RX    (1 << 9)   // Event bit when a discovery message is received
+#define ECE353_RTOS_EVENTS_IPC_GAME_READY_RX   (1 << 10)  // Event bit when a game READY message is received
+#define ECE353_RTOS_EVENTS_IPC_GAME_GUESS_RX   (1 << 11)  // Event bit when a game GUESS message is received
+#define ECE353_RTOS_EVENTS_IPC_GAME_FEEDBACK_RX (1 << 12) // Event bit when a game FEEDBACK message is received
+#define ECE353_RTOS_EVENTS_IPC_GAME_TURN_END_ACK_RX (1 << 13) // Event bit when a TURN_END_ACK message is received
+#define ECE353_RTOS_EVENTS_IPC_GAME_OVER_RX    (1 << 14)  // Event bit when a GAME_OVER message is received
+#define ECE353_RTOS_EVENTS_IPC_GAME_RESTART_RX  (1 << 15)  // Event bit when a RESTART message is received
 
 #endif // ECE353_FREERTOS
 

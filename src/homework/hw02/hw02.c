@@ -351,7 +351,7 @@ void app_init_hw(void)
  * @brief
  * This function implements the behavioral requirements for HW02
  */
-void hw02_app_main(void)
+void app_main(void)
 {
     printf("Starting HW02 App Main...\n\r");
     

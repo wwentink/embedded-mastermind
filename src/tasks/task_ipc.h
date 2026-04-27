@@ -44,6 +44,12 @@ typedef enum {
     IPC_CMD_INACTIVE_PLAYER = 0xC2,
     IPC_CMD_STATUS = 0xC3,
     IPC_CMD_ACK = 0xC4,
+    IPC_CMD_GAME_READY = 0xC5,
+    IPC_CMD_GAME_GUESS = 0xC6,
+    IPC_CMD_GAME_FEEDBACK = 0xC7,
+    IPC_CMD_GAME_TURN_END_ACK = 0xC8,
+    IPC_CMD_GAME_OVER = 0xC9,
+    IPC_CMD_GAME_RESTART = 0xCA,
 } ipc_cmd_t;
 
 /* IPC Error Types 
@@ -65,6 +71,13 @@ typedef enum {
  */
 typedef union {
     ipc_status_t status;
+    struct __attribute__((packed)) {
+        uint8_t digits[4];
+        uint8_t exact;
+        uint8_t misplaced;
+        uint8_t guess_count;
+        uint8_t flags;
+    } game;
 } ipc_payload_t;
 
 /* Use a Packed Structure */
@@ -85,6 +98,8 @@ extern cyhal_uart_cfg_t IPC_Uart_Config;
 /* Globals used for receiving data */
 extern volatile ipc_packet_t* volatile IPC_Rx_Produce_Buffer;
 extern volatile ipc_packet_t* volatile IPC_Rx_Consume_Buffer;
+extern volatile ipc_packet_t IPC_Last_Rx_Packet;
+extern volatile bool IPC_Last_Rx_Packet_Valid;
 extern TaskHandle_t TaskHandle_IPC_Rx;
 
 /* Globals used for transmitting data */
@@ -99,6 +114,7 @@ extern volatile bool IPC_Ack_Sequence_Valid;
 bool task_ipc_resources_init_rx(void);
 bool task_ipc_resources_init_tx(void);
 bool task_ipc_init(void);
+void ipc_reset_link_state(void);
 
 /**
  * @brief 
@@ -115,6 +131,12 @@ bool ipc_send_inactive_player(uint16_t sequence_num);
 bool ipc_send_status(uint16_t sequence_num, ipc_status_t status);
 bool ipc_send_ack(uint16_t sequence_num);
 bool ipc_wait_for_ack(uint32_t timeout_ms);
+bool ipc_send_game_ready(uint16_t sequence_num, const uint8_t digits[4]);
+bool ipc_send_game_guess(uint16_t sequence_num, const uint8_t digits[4], uint8_t guess_count);
+bool ipc_send_game_feedback(uint16_t sequence_num, uint8_t exact, uint8_t misplaced, uint8_t guess_count, bool win);
+bool ipc_send_game_turn_end_ack(uint16_t sequence_num);
+bool ipc_send_game_over(uint16_t sequence_num, uint8_t local_guesses, uint8_t peer_guesses, bool local_won);
+bool ipc_send_game_restart(uint16_t sequence_num, uint8_t reason);
 
 #endif /* ECE353_FREERTOS */
 

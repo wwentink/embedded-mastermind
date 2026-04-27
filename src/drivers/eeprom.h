@@ -29,6 +29,9 @@
 #define EEPROM_CMD_RDLS					0x83
 #define EEPROM_CMD_LID 					0x82
 
+#define EEPROM_STATUS_WIP                0x01
+#define EEPROM_STATUS_WEL                0x02
+
 /** Determine if the EEPROM is busy writing the last
  *  transaction to non-volatile storage
  *

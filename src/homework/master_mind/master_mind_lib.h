@@ -93,7 +93,7 @@ typedef struct {
     lcd_command_t command;
     union {
         lcd_tile_t tile;                  // For UP
-        char message[32];               // For PRINT_MESSAGE    
+        char message[128];               // For PRINT_MESSAGE    
     } payload;
 } lcd_msg_t;
 

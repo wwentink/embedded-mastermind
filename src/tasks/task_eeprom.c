@@ -48,11 +48,22 @@ bool system_sensors_eeprom_write(QueueHandle_t return_queue, uint16_t address, u
     request.value = data;
     request.response_queue = return_queue;
 
-    xQueueSend(Queue_EEPROM_Requests, &request, portMAX_DELAY);
+    if(xQueueSend(Queue_EEPROM_Requests, &request, portMAX_DELAY) != pdPASS)
+    {
+        return false;
+    }
 
     if (return_queue != NULL)
     {
-        xQueueReceive(return_queue, &response, portMAX_DELAY);
+        if(xQueueReceive(return_queue, &response, portMAX_DELAY) != pdPASS)
+        {
+            return false;
+        }
+
+        if(response.status != DEVICE_OPERATION_STATUS_WRITE_SUCCESS)
+        {
+            return false;
+        }
     }
 
     return true;
@@ -86,9 +97,21 @@ bool system_sensors_eeprom_read(QueueHandle_t return_queue, uint16_t address, ui
     request.address = address;
     request.response_queue = return_queue;
 
-    xQueueSend(Queue_EEPROM_Requests, &request, portMAX_DELAY);
+    if(xQueueSend(Queue_EEPROM_Requests, &request, portMAX_DELAY) != pdPASS)
+    {
+        return false;
+    }
 
-    xQueueReceive(return_queue, &response, portMAX_DELAY);
+    if(xQueueReceive(return_queue, &response, portMAX_DELAY) != pdPASS)
+    {
+        return false;
+    }
+
+    if(response.status != DEVICE_OPERATION_STATUS_READ_SUCCESS)
+    {
+        return false;
+    }
+
     *data = response.payload.eeprom;
 
     return true;
@@ -159,7 +182,31 @@ void task_eeprom(void *arg)
  */
 bool task_eeprom_resources_init(SemaphoreHandle_t *spi_semaphore, cyhal_spi_t *spi_obj, cyhal_gpio_t cs_pin)
  {
+    cy_rslt_t rslt;
+
     if(spi_semaphore == NULL || spi_obj == NULL || cs_pin == NC)
+    {
+        return false;
+    }
+
+    /* Ensure EEPROM control lines are in the inactive state for SPI access. */
+    cyhal_gpio_free(cs_pin);
+    rslt = cyhal_gpio_init(cs_pin, CYHAL_GPIO_DIR_OUTPUT, CYHAL_GPIO_DRIVE_STRONG, 1);
+    if(rslt != CY_RSLT_SUCCESS)
+    {
+        return false;
+    }
+
+    cyhal_gpio_free(PIN_IO_EEPROM_HOLD);
+    rslt = cyhal_gpio_init(PIN_IO_EEPROM_HOLD, CYHAL_GPIO_DIR_OUTPUT, CYHAL_GPIO_DRIVE_STRONG, 1);
+    if(rslt != CY_RSLT_SUCCESS)
+    {
+        return false;
+    }
+
+    cyhal_gpio_free(PIN_IO_EEPROM_WP);
+    rslt = cyhal_gpio_init(PIN_IO_EEPROM_WP, CYHAL_GPIO_DIR_OUTPUT, CYHAL_GPIO_DRIVE_STRONG, 1);
+    if(rslt != CY_RSLT_SUCCESS)
     {
         return false;
     }
