@@ -39,6 +39,10 @@ volatile ipc_packet_t IPC_Last_Rx_Packet;
 volatile bool IPC_Last_Rx_Packet_Valid = false;
 volatile uint8_t IPC_Rx_Raw_Data_Index = 0;
 
+/**
+ * @brief
+ * Resets the IPC link state, sequence numbers, and clears the UART buffer.
+ */
 void ipc_reset_link_state(void)
 {
     taskENTER_CRITICAL();
@@ -52,6 +56,10 @@ void ipc_reset_link_state(void)
     (void)cyhal_uart_clear(&IPC_Uart_Obj);
 }
 
+/**
+ * @brief
+ * Checks if the provided IPC command byte maps to a known valid command.
+ */
 static bool ipc_cmd_is_valid(ipc_cmd_t cmd)
 {
     switch(cmd)
@@ -73,6 +81,10 @@ static bool ipc_cmd_is_valid(ipc_cmd_t cmd)
     }
 }
 
+/**
+ * @brief
+ * Validates that all digits in a game payload are within the valid 0-7 range.
+ */
 static bool ipc_game_digits_valid(const uint8_t digits[4])
 {
     for(int i = 0; i < 4; i++)
@@ -86,6 +98,10 @@ static bool ipc_game_digits_valid(const uint8_t digits[4])
     return true;
 }
 
+/**
+ * @brief
+ * Validates the structure and content of a game-specific IPC payload.
+ */
 static bool ipc_game_payload_valid(const ipc_packet_t *packet)
 {
     if(packet == NULL)
@@ -203,6 +219,10 @@ bool validate_packet(ipc_packet_t *packet)
     return true;
 }
 
+/**
+ * @brief
+ * Attempts to queue an IPC packet for transmission by the IPC TX task.
+ */
 static bool ipc_queue_packet(const ipc_packet_t *packet)
 {
     if(packet == NULL)
@@ -232,6 +252,10 @@ bool ipc_send_discovery(uint16_t sequence_num) {
     return ipc_queue_packet(&packet);
 }
 
+/**
+ * @brief
+ * Sends an ACTIVE_PLAYER packet to negotiate the first turn.
+ */
 bool ipc_send_active_player(uint16_t sequence_num) {
     ipc_packet_t packet = {
         .start_byte = IPC_PACKET_START,
@@ -247,6 +271,10 @@ bool ipc_send_active_player(uint16_t sequence_num) {
     return ipc_queue_packet(&packet);
 }
 
+/**
+ * @brief
+ * Sends an INACTIVE_PLAYER packet to negotiate the first turn.
+ */
 bool ipc_send_inactive_player(uint16_t sequence_num) {
     ipc_packet_t packet = {
         .start_byte = IPC_PACKET_START,
@@ -261,6 +289,10 @@ bool ipc_send_inactive_player(uint16_t sequence_num) {
 
     return ipc_queue_packet(&packet);
 }
+/**
+ * @brief
+ * Sends a STATUS packet, typically used for legacy error reporting.
+ */
 bool ipc_send_status(uint16_t sequence_num, ipc_status_t status) {
     ipc_packet_t packet = {
         .start_byte = IPC_PACKET_START,
@@ -276,6 +308,10 @@ bool ipc_send_status(uint16_t sequence_num, ipc_status_t status) {
     return ipc_queue_packet(&packet);
 }
 
+/**
+ * @brief
+ * Sends an ACK packet to acknowledge receipt of a peer's message.
+ */
 bool ipc_send_ack(uint16_t sequence_num) {
     ipc_packet_t packet = {
         .start_byte = IPC_PACKET_START,
@@ -290,6 +326,10 @@ bool ipc_send_ack(uint16_t sequence_num) {
     return ipc_queue_packet(&packet);
 }
 
+/**
+ * @brief
+ * Core helper function to assemble and send a generic game packet.
+ */
 static bool ipc_send_game_packet(ipc_cmd_t cmd, uint16_t sequence_num, const uint8_t digits[4], uint8_t exact, uint8_t misplaced, uint8_t guess_count, uint8_t flags)
 {
     ipc_packet_t packet = {
@@ -320,36 +360,64 @@ static bool ipc_send_game_packet(ipc_cmd_t cmd, uint16_t sequence_num, const uin
     return ipc_queue_packet(&packet);
 }
 
+/**
+ * @brief
+ * Sends a GAME_READY packet indicating the local cipher is locked in.
+ */
 bool ipc_send_game_ready(uint16_t sequence_num, const uint8_t digits[4])
 {
     return ipc_send_game_packet(IPC_CMD_GAME_READY, sequence_num, digits, 0U, 0U, 0U, 0U);
 }
 
+/**
+ * @brief
+ * Sends a GAME_GUESS packet containing the local player's guess.
+ */
 bool ipc_send_game_guess(uint16_t sequence_num, const uint8_t digits[4], uint8_t guess_count)
 {
     return ipc_send_game_packet(IPC_CMD_GAME_GUESS, sequence_num, digits, 0U, 0U, guess_count, 0U);
 }
 
+/**
+ * @brief
+ * Sends a GAME_FEEDBACK packet containing exact/misplaced counts.
+ */
 bool ipc_send_game_feedback(uint16_t sequence_num, uint8_t exact, uint8_t misplaced, uint8_t guess_count, bool win)
 {
     return ipc_send_game_packet(IPC_CMD_GAME_FEEDBACK, sequence_num, NULL, exact, misplaced, guess_count, win ? 1U : 0U);
 }
 
+/**
+ * @brief
+ * Sends a GAME_TURN_END_ACK to acknowledge viewing the feedback.
+ */
 bool ipc_send_game_turn_end_ack(uint16_t sequence_num)
 {
     return ipc_send_game_packet(IPC_CMD_GAME_TURN_END_ACK, sequence_num, NULL, 0U, 0U, 0U, 0U);
 }
 
+/**
+ * @brief
+ * Sends a GAME_OVER packet broadcasting final guess counts.
+ */
 bool ipc_send_game_over(uint16_t sequence_num, uint8_t local_guesses, uint8_t peer_guesses, bool local_won)
 {
     return ipc_send_game_packet(IPC_CMD_GAME_OVER, sequence_num, NULL, local_guesses, peer_guesses, 0U, local_won ? 1U : 0U);
 }
 
+/**
+ * @brief
+ * Sends a GAME_RESTART packet to gracefully restart the boards.
+ */
 bool ipc_send_game_restart(uint16_t sequence_num, uint8_t reason)
 {
     return ipc_send_game_packet(IPC_CMD_GAME_RESTART, sequence_num, NULL, 0U, 0U, 0U, reason);
 }
 
+/**
+ * @brief
+ * Blocks and waits for an ACK packet matching the last transmitted sequence number.
+ */
 bool ipc_wait_for_ack(uint32_t timeout_ms) {
     TickType_t start_ticks = xTaskGetTickCount();
     TickType_t timeout_ticks = pdMS_TO_TICKS(timeout_ms);
@@ -451,6 +519,10 @@ void ipc_event_handler(void *handler_arg, cyhal_uart_event_t event)
     }
 }
 
+/**
+ * @brief
+ * Initializes the IPC UART hardware, baud rate, interrupts, and queues.
+ */
 bool task_ipc_init(void)
 {
     cy_rslt_t rslt;

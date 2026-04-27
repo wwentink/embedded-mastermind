@@ -46,6 +46,10 @@ static void hw05_die(const char *message)
     CY_ASSERT(0);
 }
 
+/**
+ * @brief
+ * Resets all digits in the array to the blank state.
+ */
 static void hw05_reset_digits(uint8_t digits[HW05_GAME_DIGIT_COUNT])
 {
     for(uint32_t i = 0; i < HW05_GAME_DIGIT_COUNT; i++)
@@ -54,6 +58,10 @@ static void hw05_reset_digits(uint8_t digits[HW05_GAME_DIGIT_COUNT])
     }
 }
 
+/**
+ * @brief
+ * Copies the contents of one digit array to another.
+ */
 static void hw05_copy_digits(uint8_t *dst, const uint8_t *src)
 {
     for(uint32_t i = 0; i < HW05_GAME_DIGIT_COUNT; i++)
@@ -62,6 +70,10 @@ static void hw05_copy_digits(uint8_t *dst, const uint8_t *src)
     }
 }
 
+/**
+ * @brief
+ * Formats the high score integer into a readable string.
+ */
 static void hw05_format_high_score(uint16_t score, char *buffer, size_t buffer_size)
 {
     if((buffer == NULL) || (buffer_size == 0U))
@@ -79,11 +91,19 @@ static void hw05_format_high_score(uint16_t score, char *buffer, size_t buffer_s
     }
 }
 
+/**
+ * @brief
+ * Returns the background color based on the current UI theme.
+ */
 static uint16_t hw05_theme_bg(hw05_theme_t theme)
 {
     return (theme == HW05_THEME_LIGHT) ? LCD_COLOR_WHITE : LCD_COLOR_BLACK;
 }
 
+/**
+ * @brief
+ * Determines the appropriate tile background color for a given row and theme.
+ */
 static uint16_t hw05_tile_bg_color(hw05_theme_t theme, lcd_row_t row)
 {
     if(row == LCD_TILE_ROW_CYPHER)
@@ -94,6 +114,10 @@ static uint16_t hw05_tile_bg_color(hw05_theme_t theme, lcd_row_t row)
     return (theme == HW05_THEME_LIGHT) ? HW05_TILE_LIGHT_BLUE : HW05_TILE_PURPLE;
 }
 
+/**
+ * @brief
+ * Determines the appropriate tile foreground color for a given row and theme.
+ */
 static uint16_t hw05_tile_fg_color(hw05_theme_t theme, lcd_row_t row)
 {
     if(row == LCD_TILE_ROW_CYPHER)
@@ -104,6 +128,10 @@ static uint16_t hw05_tile_fg_color(hw05_theme_t theme, lcd_row_t row)
     return (theme == HW05_THEME_LIGHT) ? LCD_COLOR_BLACK : LCD_COLOR_WHITE;
 }
 
+/**
+ * @brief
+ * Helper to send a structured message to the LCD gatekeeper task.
+ */
 static bool hw05_send_lcd_request(const lcd_msg_t *msg)
 {
     lcd_msg_request_t request;
@@ -119,6 +147,10 @@ static bool hw05_send_lcd_request(const lcd_msg_t *msg)
     return (xQueueSend(xQueue_Request_LCD, &request, portMAX_DELAY) == pdPASS);
 }
 
+/**
+ * @brief
+ * Sends a command to clear the LCD screen using the current theme background.
+ */
 static bool hw05_lcd_clear(hw05_theme_t theme)
 {
     lcd_msg_t msg = {0};
@@ -127,6 +159,10 @@ static bool hw05_lcd_clear(hw05_theme_t theme)
     return hw05_send_lcd_request(&msg);
 }
 
+/**
+ * @brief
+ * Sends a string message to be printed at the top of the LCD.
+ */
 static bool hw05_lcd_print(const char *text)
 {
     lcd_msg_t msg = {0};
@@ -142,6 +178,10 @@ static bool hw05_lcd_print(const char *text)
     return hw05_send_lcd_request(&msg);
 }
 
+/**
+ * @brief
+ * Sends a command to draw a specific digit tile on the LCD.
+ */
 static bool hw05_lcd_draw_tile(lcd_row_t row, uint8_t col, uint8_t number, bool inverted, hw05_theme_t theme)
 {
     lcd_msg_t msg = {0};
@@ -162,6 +202,10 @@ static bool hw05_lcd_draw_tile(lcd_row_t row, uint8_t col, uint8_t number, bool 
     return hw05_send_lcd_request(&msg);
 }
 
+/**
+ * @brief
+ * Renders the palette of available digits (0-7) at the bottom of the screen.
+ */
 static void hw05_render_palette(hw05_theme_t theme)
 {
     for(uint8_t digit = 0; digit < 4U; digit++)
@@ -175,6 +219,10 @@ static void hw05_render_palette(hw05_theme_t theme)
     }
 }
 
+/**
+ * @brief
+ * Renders the main cypher/guess entry row tiles on the LCD.
+ */
 static void hw05_render_entry_row(
     hw05_theme_t theme,
     const uint8_t digits[HW05_GAME_DIGIT_COUNT],
@@ -192,6 +240,10 @@ static void hw05_render_entry_row(
     }
 }
 
+/**
+ * @brief
+ * Composites the full input screen including text, entry row, and optional palette.
+ */
 static void hw05_render_input_screen(
     hw05_theme_t theme,
     const char *status,
@@ -211,12 +263,20 @@ static void hw05_render_input_screen(
     }
 }
 
+/**
+ * @brief
+ * Renders a simplified screen showing only text without input tiles.
+ */
 static void hw05_render_message_screen(hw05_theme_t theme, const char *status)
 {
     (void)hw05_lcd_clear(theme);
     (void)hw05_lcd_print(status);
 }
 
+/**
+ * @brief
+ * Requests a reading from the capacitive touch sensor gatekeeper task.
+ */
 static bool hw05_read_touch(uint16_t *screen_x, uint16_t *screen_y)
 {
     device_request_msg_t request = {0};
@@ -251,6 +311,10 @@ static bool hw05_read_touch(uint16_t *screen_x, uint16_t *screen_y)
     return true;
 }
 
+/**
+ * @brief
+ * Maps raw (X,Y) capacitive touch coordinates to a specific palette digit.
+ */
 static bool hw05_touch_to_digit(uint16_t screen_x, uint16_t screen_y, uint8_t *digit)
 {
     if(digit == NULL)
@@ -282,6 +346,10 @@ static bool hw05_touch_to_digit(uint16_t screen_x, uint16_t screen_y, uint8_t *d
     return false;
 }
 
+/**
+ * @brief
+ * Reads the saved high score from the EEPROM via the sensor gatekeeper.
+ */
 static bool hw05_read_high_score(uint16_t *score)
 {
     uint8_t low_byte = 0U;
@@ -339,6 +407,10 @@ static bool hw05_read_high_score(uint16_t *score)
     return true;
 }
 
+/**
+ * @brief
+ * Writes a new high score to the EEPROM for persistent storage.
+ */
 static bool hw05_write_high_score(uint16_t score)
 {
     uint8_t low_byte = (uint8_t)(score & 0xFFU);
@@ -372,11 +444,19 @@ static bool hw05_write_high_score(uint16_t score)
     return (verify_score == score);
 }
 
+/**
+ * @brief
+ * Reads the current ambient light level from the sensor gatekeeper.
+ */
 static bool hw05_read_ambient_light(uint16_t *ambient_light)
 {
     return system_sensors_get_light(Queue_Light_Sensor_Responses, ambient_light);
 }
 
+/**
+ * @brief
+ * Evaluates ambient light against thresholds to dynamically switch themes with hysteresis.
+ */
 static hw05_theme_t hw05_update_theme_from_light(uint16_t ambient_light, hw05_theme_t current_theme)
 {
     if((current_theme == HW05_THEME_DARK) &&
@@ -394,6 +474,10 @@ static hw05_theme_t hw05_update_theme_from_light(uint16_t ambient_light, hw05_th
     return current_theme;
 }
 
+/**
+ * @brief
+ * Clears all IPC-related RTOS event flags and resets the UART link state.
+ */
 static void hw05_clear_ipc_sync_state(void)
 {
     xEventGroupClearBits(
@@ -411,6 +495,10 @@ static void hw05_clear_ipc_sync_state(void)
     ipc_reset_link_state();
 }
 
+/**
+ * @brief
+ * Safely retrieves the most recently received IPC packet if it matches the expected command.
+ */
 static bool hw05_consume_rx_packet(ipc_cmd_t expected_cmd, ipc_packet_t *packet)
 {
     bool valid = false;
@@ -432,6 +520,10 @@ static bool hw05_consume_rx_packet(ipc_cmd_t expected_cmd, ipc_packet_t *packet)
     return valid;
 }
 
+/**
+ * @brief
+ * Populates the payload for a GAME_READY packet, keeping the local cipher secret.
+ */
 static void hw05_build_ready_payload(uint8_t ready_digits[HW05_GAME_DIGIT_COUNT])
 {
     if(ready_digits == NULL)
@@ -449,6 +541,10 @@ static void hw05_build_ready_payload(uint8_t ready_digits[HW05_GAME_DIGIT_COUNT]
     }
 }
 
+/**
+ * @brief
+ * Calculates the exact and misplaced digit counts for a given guess against a secret cipher.
+ */
 static bool hw05_evaluate_guess(
     const uint8_t secret[HW05_GAME_DIGIT_COUNT],
     const uint8_t guess[HW05_GAME_DIGIT_COUNT],
@@ -498,6 +594,10 @@ static bool hw05_evaluate_guess(
     return true;
 }
 
+/**
+ * @brief
+ * Master rendering function that determines what to draw based on the current FSM state.
+ */
 static void hw05_render_current_state(
     hw05_state_t state,
     hw05_theme_t theme,
@@ -583,6 +683,10 @@ static void hw05_render_current_state(
     }
 }
 
+/**
+ * @brief
+ * Resets the entry buffers and cursor positions for a new turn.
+ */
 static void hw05_reset_round_state(
     uint8_t *entry_digits,
     uint8_t *entry_count,
@@ -610,6 +714,10 @@ static void hw05_reset_round_state(
     }
 }
 
+/**
+ * @brief
+ * Resets the entire game state machine and variables to start a fresh game.
+ */
 static void hw05_reset_game(
     hw05_state_t *state,
     uint8_t *local_cipher,
@@ -728,6 +836,10 @@ void app_init_hw(void)
     }
 }
 
+/**
+ * @brief
+ * Main System Control Task. Implements the FSM and event loop for the Mastermind game.
+ */
 void task_hw05_system_control(void *pvParameters)
 {
     (void)pvParameters;

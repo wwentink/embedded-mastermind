@@ -853,3 +853,10 @@
 870	1301	7989569964523962	build/ece353/Debug/mtb-example-ce240786-empty-app.elf	a25a870dc5cd6eb
 98	920	7989571540213499	C:/Users/willw/ece353/ece353-s26-wwentink/build/Debug/local/src/homework/hw05/hw05.o	73934ee9933da0d7
 921	1309	7989571548415512	build/ece353/Debug/mtb-example-ce240786-empty-app.elf	a25a870dc5cd6eb
+130	722	7989581057887024	C:/Users/willw/ece353/ece353-s26-wwentink/build/Debug/local/src/tasks/task_ipc_rx.o	bcdbb246fc162988
+144	727	7989581058033129	C:/Users/willw/ece353/ece353-s26-wwentink/build/Debug/local/src/tasks/task_ipc_tx.o	bd6964df97be21eb
+118	778	7989581057708350	C:/Users/willw/ece353/ece353-s26-wwentink/build/Debug/local/src/tasks/task_ipc.o	9140b827c763bdca
+105	877	7989581057608860	C:/Users/willw/ece353/ece353-s26-wwentink/build/Debug/local/src/homework/hw05/hw05.o	73934ee9933da0d7
+878	1285	7989581065356661	build/ece353/Debug/mtb-example-ce240786-empty-app.elf	a25a870dc5cd6eb
+91	897	7989582354322162	C:/Users/willw/ece353/ece353-s26-wwentink/build/Debug/local/src/homework/hw05/hw05.o	73934ee9933da0d7
+898	1264	7989582362454110	build/ece353/Debug/mtb-example-ce240786-empty-app.elf	a25a870dc5cd6eb

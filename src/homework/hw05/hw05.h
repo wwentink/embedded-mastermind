@@ -38,8 +38,8 @@
 #define HW05_EEPROM_HIGH_SCORE_UNSET      (0xFFFFU)
 #define HW05_HIGH_SCORE_MIN_VALID          (1U)
 #define HW05_HIGH_SCORE_MAX_VALID          (255U)
-#define HW05_LIGHT_THRESHOLD              (5000U)
-#define HW05_LIGHT_HYSTERESIS             (600U)
+#define HW05_LIGHT_THRESHOLD              (2500U)
+#define HW05_LIGHT_HYSTERESIS             (400U)
 
 typedef enum
 {
