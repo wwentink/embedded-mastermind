@@ -35,6 +35,8 @@ uint32_t IPC_Actual_Baud;
 volatile uint16_t IPC_Last_Tx_Sequence = 0;
 volatile uint16_t IPC_Last_Ack_Sequence = 0;
 volatile bool IPC_Ack_Sequence_Valid = false;
+volatile ipc_packet_t IPC_Last_Rx_Packet;
+volatile bool IPC_Last_Rx_Packet_Valid = false;
 
 static bool ipc_cmd_is_valid(ipc_cmd_t cmd)
 {
@@ -45,9 +47,57 @@ static bool ipc_cmd_is_valid(ipc_cmd_t cmd)
         case IPC_CMD_INACTIVE_PLAYER:
         case IPC_CMD_STATUS:
         case IPC_CMD_ACK:
+        case IPC_CMD_GAME_READY:
+        case IPC_CMD_GAME_GUESS:
+        case IPC_CMD_GAME_FEEDBACK:
+        case IPC_CMD_GAME_TURN_END_ACK:
+        case IPC_CMD_GAME_OVER:
+        case IPC_CMD_GAME_RESTART:
             return true;
         default:
             return false;
+    }
+}
+
+static bool ipc_game_digits_valid(const uint8_t digits[4])
+{
+    for(int i = 0; i < 4; i++)
+    {
+        if(digits[i] > 7U)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool ipc_game_payload_valid(const ipc_packet_t *packet)
+{
+    if(packet == NULL)
+    {
+        return false;
+    }
+
+    switch(packet->cmd)
+    {
+        case IPC_CMD_GAME_READY:
+        case IPC_CMD_GAME_GUESS:
+            return ipc_game_digits_valid(packet->payload.game.digits);
+
+        case IPC_CMD_GAME_FEEDBACK:
+            return
+                (packet->payload.game.exact <= 4U) &&
+                (packet->payload.game.misplaced <= 4U) &&
+                ((uint16_t)packet->payload.game.exact + (uint16_t)packet->payload.game.misplaced <= 4U);
+
+        case IPC_CMD_GAME_TURN_END_ACK:
+        case IPC_CMD_GAME_OVER:
+        case IPC_CMD_GAME_RESTART:
+            return true;
+
+        default:
+            return true;
     }
 }
 
@@ -107,13 +157,18 @@ bool validate_packet(ipc_packet_t *packet)
         return false;
     }
 
-    // All commands except status should carry IPC_STATUS_OK in payload.
-    if((packet->cmd != IPC_CMD_STATUS) && (packet->payload.status != IPC_STATUS_OK))
+    // Legacy commands still use IPC_STATUS_OK in the payload marker field.
+    if((packet->cmd == IPC_CMD_DISCOVERY) ||
+       (packet->cmd == IPC_CMD_ACTIVE_PLAYER) ||
+       (packet->cmd == IPC_CMD_INACTIVE_PLAYER) ||
+       (packet->cmd == IPC_CMD_ACK))
     {
-        return false;
+        if(packet->payload.status != IPC_STATUS_OK)
+        {
+            return false;
+        }
     }
 
-    // STATUS packets must carry one of the supported status values.
     if(packet->cmd == IPC_CMD_STATUS)
     {
         if(
@@ -126,7 +181,22 @@ bool validate_packet(ipc_packet_t *packet)
         }
     }
 
+    if(!ipc_game_payload_valid(packet))
+    {
+        return false;
+    }
+
     return true;
+}
+
+static bool ipc_queue_packet(const ipc_packet_t *packet)
+{
+    if(packet == NULL)
+    {
+        return false;
+    }
+
+    return (xQueueSend(Queue_IPC_Tx, packet, pdMS_TO_TICKS(100)) == pdPASS);
 }
 
 /********************************************************************/
@@ -145,11 +215,7 @@ bool ipc_send_discovery(uint16_t sequence_num) {
     packet.checksum = calculate_checksum(&packet);
     IPC_Last_Tx_Sequence = sequence_num;
 
-    if (xQueueSend(Queue_IPC_Tx, &packet, pdMS_TO_TICKS(100)) != pdPASS) {
-        return false; // Failed to send packet to queue
-    } 
-    
-    return true; // Packet successfully sent to queue
+    return ipc_queue_packet(&packet);
 }
 
 bool ipc_send_active_player(uint16_t sequence_num) {
@@ -164,11 +230,7 @@ bool ipc_send_active_player(uint16_t sequence_num) {
     packet.checksum = calculate_checksum(&packet);
     IPC_Last_Tx_Sequence = sequence_num;
 
-    if (xQueueSend(Queue_IPC_Tx, &packet, pdMS_TO_TICKS(100)) != pdPASS) {
-        return false; // Failed to send packet to queue
-    } 
-    
-    return true; // Packet successfully sent to queue
+    return ipc_queue_packet(&packet);
 }
 
 bool ipc_send_inactive_player(uint16_t sequence_num) {
@@ -183,11 +245,7 @@ bool ipc_send_inactive_player(uint16_t sequence_num) {
     packet.checksum = calculate_checksum(&packet);
     IPC_Last_Tx_Sequence = sequence_num;
 
-    if (xQueueSend(Queue_IPC_Tx, &packet, pdMS_TO_TICKS(100)) != pdPASS) {
-        return false; // Failed to send packet to queue
-    } 
-    
-    return true; // Packet successfully sent to queue
+    return ipc_queue_packet(&packet);
 }
 bool ipc_send_status(uint16_t sequence_num, ipc_status_t status) {
     ipc_packet_t packet = {
@@ -201,11 +259,7 @@ bool ipc_send_status(uint16_t sequence_num, ipc_status_t status) {
     packet.checksum = calculate_checksum(&packet);
     IPC_Last_Tx_Sequence = sequence_num;
 
-    if (xQueueSend(Queue_IPC_Tx, &packet, pdMS_TO_TICKS(100)) != pdPASS) {
-        return false; // Failed to send packet to queue
-    } 
-    
-    return true; // Packet successfully sent to queue
+    return ipc_queue_packet(&packet);
 }
 
 bool ipc_send_ack(uint16_t sequence_num) {
@@ -219,11 +273,67 @@ bool ipc_send_ack(uint16_t sequence_num) {
 
     packet.checksum = calculate_checksum(&packet);
 
-    if (xQueueSend(Queue_IPC_Tx, &packet, pdMS_TO_TICKS(100)) != pdPASS) {
-        return false; // Failed to send packet to queue
-    } 
-    
-    return true; // Packet successfully sent to queue
+    return ipc_queue_packet(&packet);
+}
+
+static bool ipc_send_game_packet(ipc_cmd_t cmd, uint16_t sequence_num, const uint8_t digits[4], uint8_t exact, uint8_t misplaced, uint8_t guess_count, uint8_t flags)
+{
+    ipc_packet_t packet = {
+        .start_byte = IPC_PACKET_START,
+        .cmd = cmd,
+        .sequence_num = sequence_num,
+        .payload.game = {
+            .digits = {0, 0, 0, 0},
+            .exact = exact,
+            .misplaced = misplaced,
+            .guess_count = guess_count,
+            .flags = flags,
+        },
+        .checksum = 0,
+    };
+
+    if(digits != NULL)
+    {
+        for(int i = 0; i < 4; i++)
+        {
+            packet.payload.game.digits[i] = digits[i];
+        }
+    }
+
+    packet.checksum = calculate_checksum(&packet);
+    IPC_Last_Tx_Sequence = sequence_num;
+
+    return ipc_queue_packet(&packet);
+}
+
+bool ipc_send_game_ready(uint16_t sequence_num, const uint8_t digits[4])
+{
+    return ipc_send_game_packet(IPC_CMD_GAME_READY, sequence_num, digits, 0U, 0U, 0U, 0U);
+}
+
+bool ipc_send_game_guess(uint16_t sequence_num, const uint8_t digits[4], uint8_t guess_count)
+{
+    return ipc_send_game_packet(IPC_CMD_GAME_GUESS, sequence_num, digits, 0U, 0U, guess_count, 0U);
+}
+
+bool ipc_send_game_feedback(uint16_t sequence_num, uint8_t exact, uint8_t misplaced, uint8_t guess_count, bool win)
+{
+    return ipc_send_game_packet(IPC_CMD_GAME_FEEDBACK, sequence_num, NULL, exact, misplaced, guess_count, win ? 1U : 0U);
+}
+
+bool ipc_send_game_turn_end_ack(uint16_t sequence_num)
+{
+    return ipc_send_game_packet(IPC_CMD_GAME_TURN_END_ACK, sequence_num, NULL, 0U, 0U, 0U, 0U);
+}
+
+bool ipc_send_game_over(uint16_t sequence_num, uint8_t local_guesses, uint8_t peer_guesses, bool local_won)
+{
+    return ipc_send_game_packet(IPC_CMD_GAME_OVER, sequence_num, NULL, local_guesses, peer_guesses, 0U, local_won ? 1U : 0U);
+}
+
+bool ipc_send_game_restart(uint16_t sequence_num, uint8_t reason)
+{
+    return ipc_send_game_packet(IPC_CMD_GAME_RESTART, sequence_num, NULL, 0U, 0U, 0U, reason);
 }
 
 bool ipc_wait_for_ack(uint32_t timeout_ms) {

@@ -48,11 +48,6 @@ void task_ipc_rx(void *param)
 
         if(validate_packet((ipc_packet_t *)IPC_Rx_Consume_Buffer) == true) 
         {
-            taskENTER_CRITICAL();
-            IPC_Last_Rx_Packet = *IPC_Rx_Consume_Buffer;
-            IPC_Last_Rx_Packet_Valid = true;
-            taskEXIT_CRITICAL();
-
             // Process the received IPC packet
             switch(IPC_Rx_Consume_Buffer->cmd)
             {
@@ -77,44 +72,25 @@ void task_ipc_rx(void *param)
                     ipc_send_ack(IPC_Rx_Consume_Buffer->sequence_num);
                     break;
                 case IPC_CMD_ACK:
-                    printf("Received ACK for sequence number: %d!\n\r", IPC_Rx_Consume_Buffer->sequence_num);
-
                     taskENTER_CRITICAL();
-                    IPC_Last_Ack_Sequence = IPC_Rx_Consume_Buffer->sequence_num;
-                    IPC_Ack_Sequence_Valid = true;
-                    taskEXIT_CRITICAL();
+                    if(IPC_Rx_Consume_Buffer->sequence_num == IPC_Last_Tx_Sequence)
+                    {
+                        IPC_Last_Ack_Sequence = IPC_Rx_Consume_Buffer->sequence_num;
+                        IPC_Ack_Sequence_Valid = true;
+                        taskEXIT_CRITICAL();
 
-                    xEventGroupSetBits(ECE353_RTOS_Events, ECE353_RTOS_EVENTS_IPC_ACK_RECEIVED);
-                    break;
-                case IPC_CMD_GAME_READY:
-                    printf("Received GAME READY message!\n\r");
-                    xEventGroupSetBits(ECE353_RTOS_Events, ECE353_RTOS_EVENTS_IPC_GAME_READY_RX);
-                    ipc_send_ack(IPC_Rx_Consume_Buffer->sequence_num);
-                    break;
-                case IPC_CMD_GAME_GUESS:
-                    printf("Received GAME GUESS message!\n\r");
-                    xEventGroupSetBits(ECE353_RTOS_Events, ECE353_RTOS_EVENTS_IPC_GAME_GUESS_RX);
-                    ipc_send_ack(IPC_Rx_Consume_Buffer->sequence_num);
-                    break;
-                case IPC_CMD_GAME_FEEDBACK:
-                    printf("Received GAME FEEDBACK message!\n\r");
-                    xEventGroupSetBits(ECE353_RTOS_Events, ECE353_RTOS_EVENTS_IPC_GAME_FEEDBACK_RX);
-                    ipc_send_ack(IPC_Rx_Consume_Buffer->sequence_num);
-                    break;
-                case IPC_CMD_GAME_TURN_END_ACK:
-                    printf("Received GAME TURN END ACK message!\n\r");
-                    xEventGroupSetBits(ECE353_RTOS_Events, ECE353_RTOS_EVENTS_IPC_GAME_TURN_END_ACK_RX);
-                    ipc_send_ack(IPC_Rx_Consume_Buffer->sequence_num);
-                    break;
-                case IPC_CMD_GAME_OVER:
-                    printf("Received GAME OVER message!\n\r");
-                    xEventGroupSetBits(ECE353_RTOS_Events, ECE353_RTOS_EVENTS_IPC_GAME_OVER_RX);
-                    ipc_send_ack(IPC_Rx_Consume_Buffer->sequence_num);
-                    break;
-                case IPC_CMD_GAME_RESTART:
-                    printf("Received GAME RESTART message!\n\r");
-                    xEventGroupSetBits(ECE353_RTOS_Events, ECE353_RTOS_EVENTS_IPC_GAME_RESTART_RX);
-                    ipc_send_ack(IPC_Rx_Consume_Buffer->sequence_num);
+                        printf("Received ACK for sequence number: %d!\n\r", IPC_Rx_Consume_Buffer->sequence_num);
+                        xEventGroupSetBits(ECE353_RTOS_Events, ECE353_RTOS_EVENTS_IPC_ACK_RECEIVED);
+                    }
+                    else
+                    {
+                        taskEXIT_CRITICAL();
+                        printf(
+                            "Ignoring stray ACK seq:%d expected:%d\n\r",
+                            IPC_Rx_Consume_Buffer->sequence_num,
+                            IPC_Last_Tx_Sequence
+                        );
+                    }
                     break;
                 default:
                     printf("Received IPC Packet with unknown command: %d\n\r", IPC_Rx_Consume_Buffer->cmd);
