@@ -282,30 +282,36 @@ static bool hw05_read_touch(uint16_t *screen_x, uint16_t *screen_y)
     device_request_msg_t request = {0};
     device_response_msg_t response = {0};
 
+    /* Validate input pointers and communication queues. */
     if((screen_x == NULL) || (screen_y == NULL) || (Queue_Cap_Touch_Responses == NULL))
     {
         return false;
     }
 
+    /* Format the request for a capacitive touch read operation. */
     request.device = DEVICE_CAP_TOUCH;
     request.operation = DEVICE_OP_READ;
     request.response_queue = Queue_Cap_Touch_Responses;
 
+    /* Post the request to the touch sensor gatekeeper task. */
     if(xQueueSend(Queue_Request_Cap_Touch, &request, portMAX_DELAY) != pdPASS)
     {
         return false;
     }
 
+    /* Wait for the gatekeeper to return the coordinate data. */
     if(xQueueReceive(Queue_Cap_Touch_Responses, &response, pdMS_TO_TICKS(100)) != pdPASS)
     {
         return false;
     }
 
+    /* Check if the read operation was physically successful. */
     if(response.status != DEVICE_OPERATION_STATUS_READ_SUCCESS)
     {
         return false;
     }
 
+    /* Extract the X and Y coordinates from the response payload. */
     *screen_x = response.payload.cap_touch[0];
     *screen_y = response.payload.cap_touch[1];
     return true;
@@ -357,28 +363,34 @@ static bool hw05_read_high_score(uint16_t *score)
     uint8_t magic = 0U;
     uint16_t value = HW05_EEPROM_HIGH_SCORE_UNSET;
 
+    /* Validate the output pointer. */
     if(score == NULL)
     {
         return false;
     }
 
+    /* Read the magic marker to check if a valid score has ever been written. */
     if(!system_sensors_eeprom_read(Queue_EEPROM_Responses, HW05_EEPROM_HIGH_SCORE_MAGIC_ADDR, &magic))
     {
         return false;
     }
 
+    /* Read the low byte of the 16-bit high score. */
     if(!system_sensors_eeprom_read(Queue_EEPROM_Responses, HW05_EEPROM_HIGH_SCORE_ADDR, &low_byte))
     {
         return false;
     }
 
+    /* Read the high byte of the 16-bit high score. */
     if(!system_sensors_eeprom_read(Queue_EEPROM_Responses, HW05_EEPROM_HIGH_SCORE_ADDR + 1U, &high_byte))
     {
         return false;
     }
 
+    /* Reconstruct the 16-bit score from the two bytes. */
     value = ((uint16_t)high_byte << 8) | low_byte;
 
+    /* If the value matches the 'unset' state, return success with UNSET. */
     if(value == HW05_EEPROM_HIGH_SCORE_UNSET)
     {
         *score = HW05_EEPROM_HIGH_SCORE_UNSET;
@@ -397,12 +409,14 @@ static bool hw05_read_high_score(uint16_t *score)
         return true;
     }
 
+    /* Range check the retrieved value to ensure it's a realistic guess count. */
     if((value < HW05_HIGH_SCORE_MIN_VALID) || (value > HW05_HIGH_SCORE_MAX_VALID))
     {
         *score = HW05_EEPROM_HIGH_SCORE_UNSET;
         return true;
     }
 
+    /* Store the valid score for the caller. */
     *score = value;
     return true;
 }
@@ -417,16 +431,19 @@ static bool hw05_write_high_score(uint16_t score)
     uint8_t high_byte = (uint8_t)((score >> 8) & 0xFFU);
     uint16_t verify_score = 0U;
 
+    /* Write the low byte of the new high score. */
     if(!system_sensors_eeprom_write(Queue_EEPROM_Responses, HW05_EEPROM_HIGH_SCORE_ADDR, low_byte))
     {
         return false;
     }
 
+    /* Write the high byte of the new high score. */
     if(!system_sensors_eeprom_write(Queue_EEPROM_Responses, HW05_EEPROM_HIGH_SCORE_ADDR + 1U, high_byte))
     {
         return false;
     }
 
+    /* Write the magic marker to identify this as a valid ECE353 record. */
     if(!system_sensors_eeprom_write(
         Queue_EEPROM_Responses,
         HW05_EEPROM_HIGH_SCORE_MAGIC_ADDR,
@@ -436,6 +453,7 @@ static bool hw05_write_high_score(uint16_t score)
         return false;
     }
 
+    /* Read back the value immediately to verify the write operation was successful. */
     if(!hw05_read_high_score(&verify_score))
     {
         return false;
@@ -871,6 +889,10 @@ void task_hw05_system_control(void *pvParameters)
     TickType_t next_discovery_tick = 0U;
     TickType_t startup_tick = xTaskGetTickCount();
 
+    /* 
+     * Initialization Phase: 
+     * Reset all local game state variables and clear any pending IPC flags. 
+     */
     hw05_reset_digits(local_cipher);
     hw05_reset_digits(peer_cipher);
     hw05_build_ready_payload(ready_payload);
@@ -878,11 +900,14 @@ void task_hw05_system_control(void *pvParameters)
     hw05_reset_digits(last_guess_digits);
     hw05_clear_ipc_sync_state();
 
+    /* Load the personal high score record from EEPROM. */
+
     if(!hw05_read_high_score(&high_score))
     {
         high_score = HW05_EEPROM_HIGH_SCORE_UNSET;
     }
 
+    /* Perform the initial UI render to show the startup/sync screen. */
     hw05_render_current_state(
         state,
         theme,
@@ -898,8 +923,10 @@ void task_hw05_system_control(void *pvParameters)
     );
     ui_dirty = false;
 
+    /* Main Task Event Loop */
     while(1)
     {
+        /* Block until a button is pressed or a UART packet is received by the IPC task. */
         EventBits_t events = xEventGroupWaitBits(
             ECE353_RTOS_Events,
             ECE353_EVENT_SW1_PRESSED |
@@ -917,6 +944,7 @@ void task_hw05_system_control(void *pvParameters)
             0
         );
 
+        /* Periodically poll the light sensor to update the UI theme (Light vs Dark mode). */
         if(hw05_read_ambient_light(&ambient_light))
         {
             hw05_theme_t new_theme = hw05_update_theme_from_light(ambient_light, theme);
@@ -927,6 +955,7 @@ void task_hw05_system_control(void *pvParameters)
             }
         }
 
+        /* Handle SW3: Manually reset the high score stored in EEPROM. */
         if((events & ECE353_EVENT_SW3_PRESSED) && (state <= HW05_STATE_WAIT_FOR_PEER_READY))
         {
             /* Ignore only very-early startup events to avoid stale/reset-edge artifacts. */
@@ -943,16 +972,41 @@ void task_hw05_system_control(void *pvParameters)
             }
         }
 
+        /* 
+         * STATE: INIT_AND_SYNC
+         * Periodically broadcast discovery packets until an ACK is received from a peer. 
+         */
         if(state == HW05_STATE_INIT_AND_SYNC)
         {
             TickType_t now_ticks = xTaskGetTickCount();
 
             if(now_ticks >= next_discovery_tick)
             {
+                /*
+                 * Clear any stale ACK event that may have been set by UART line
+                 * noise or a buffered byte during power-on before sending a new
+                 * discovery packet. Without this, ipc_wait_for_ack() can consume
+                 * a ghost ACK from a previous iteration or from startup transients
+                 * and return true even when no peer is connected.
+                 */
+                xEventGroupClearBits(ECE353_RTOS_Events, ECE353_RTOS_EVENTS_IPC_ACK_RECEIVED);
+
                 (void)ipc_send_discovery(tx_sequence++);
+
                 if(ipc_wait_for_ack(75U))
                 {
-                    sync_complete = true;
+                    /*
+                     * Enforce a minimum startup guard period before accepting a
+                     * discovery ACK as legitimate. The UART bridge takes a moment
+                     * to enumerate and the line can generate spurious bytes during
+                     * that window. Discard any ACK that arrives inside 500 ms of
+                     * boot — a real peer will continue sending and be caught on a
+                     * subsequent iteration.
+                     */
+                    if((xTaskGetTickCount() - startup_tick) > pdMS_TO_TICKS(500U))
+                    {
+                        sync_complete = true;
+                    }
                 }
 
                 next_discovery_tick = now_ticks + pdMS_TO_TICKS(150U);
@@ -965,6 +1019,7 @@ void task_hw05_system_control(void *pvParameters)
             }
         }
 
+        /* IPC Event: Peer is ready (sent their cipher choice). */
         if((events & ECE353_RTOS_EVENTS_IPC_GAME_READY_RX) != 0U)
         {
             ipc_packet_t packet = {0};
@@ -973,6 +1028,7 @@ void task_hw05_system_control(void *pvParameters)
             {
                 peer_ready_seen = true;
 
+                /* Determine who goes first based on who declared readiness first. */
                 if(!local_ready_sent)
                 {
                     peer_ready_seen_before_local_ready = true;
@@ -982,6 +1038,7 @@ void task_hw05_system_control(void *pvParameters)
             }
         }
 
+        /* IPC Event: Peer sent a guess. Evaluate it and send back feedback. */
         if((events & ECE353_RTOS_EVENTS_IPC_GAME_GUESS_RX) != 0U)
         {
             ipc_packet_t packet = {0};
@@ -991,6 +1048,7 @@ void task_hw05_system_control(void *pvParameters)
                 uint8_t current_exact = 0U;
                 uint8_t current_misplaced = 0U;
 
+                /* Compare the peer's guess against our local secret cipher. */
                 hw05_copy_digits(last_guess_digits, packet.payload.game.digits);
                 peer_guess_count = packet.payload.game.guess_count;
                 (void)hw05_evaluate_guess(local_cipher, last_guess_digits, &current_exact, &current_misplaced);
@@ -999,6 +1057,7 @@ void task_hw05_system_control(void *pvParameters)
                 misplaced = current_misplaced;
                 passive_win = (current_exact == HW05_GAME_DIGIT_COUNT);
 
+                /* Transmit the feedback (exact/misplaced counts) to the peer. */
                 (void)ipc_send_game_feedback(
                     tx_sequence++,
                     current_exact,
@@ -1013,6 +1072,7 @@ void task_hw05_system_control(void *pvParameters)
             }
         }
 
+        /* IPC Event: Feedback received for our last guess. Update local score/state. */
         if((events & ECE353_RTOS_EVENTS_IPC_GAME_FEEDBACK_RX) != 0U)
         {
             ipc_packet_t packet = {0};
@@ -1023,6 +1083,7 @@ void task_hw05_system_control(void *pvParameters)
                 misplaced = packet.payload.game.misplaced;
                 local_guess_count = packet.payload.game.guess_count;
 
+                /* If we won, check if we set a new personal high score record. */
                 if((packet.payload.game.flags & 0x01U) != 0U)
                 {
                     if((high_score == HW05_EEPROM_HIGH_SCORE_UNSET) || (local_guess_count < high_score))
@@ -1037,11 +1098,11 @@ void task_hw05_system_control(void *pvParameters)
                 }
 
                 state = HW05_STATE_ACTIVE_VIEW_FEEDBACK;
-
                 ui_dirty = true;
             }
         }
 
+        /* IPC Event: Peer acknowledged the end of their turn. */
         if((events & ECE353_RTOS_EVENTS_IPC_GAME_TURN_END_ACK_RX) != 0U)
         {
             ipc_packet_t packet = {0};
@@ -1050,6 +1111,7 @@ void task_hw05_system_control(void *pvParameters)
             {
                 if(passive_win)
                 {
+                    /* If the peer successfully guessed our cipher, the game is over. */
                     (void)ipc_send_game_over(
                         tx_sequence++,
                         (uint8_t)local_guess_count,
@@ -1061,6 +1123,7 @@ void task_hw05_system_control(void *pvParameters)
                 }
                 else
                 {
+                    /* Swap roles: we become the active guesser now. */
                     state = HW05_STATE_ACTIVE_BUILD_GUESS;
                     hw05_reset_round_state(entry_digits, &entry_count, &entry_cursor, exact, misplaced);
                 }
@@ -1069,13 +1132,14 @@ void task_hw05_system_control(void *pvParameters)
             }
         }
 
+        /* IPC Event: Game Over signal received from peer. */
         if((events & ECE353_RTOS_EVENTS_IPC_GAME_OVER_RX) != 0U)
         {
             ipc_packet_t packet = {0};
 
             if((state == HW05_STATE_WAIT_GAME_OVER) && hw05_consume_rx_packet(IPC_CMD_GAME_OVER, &packet))
             {
-                /* Game-over payload uses sender-local in exact, sender-peer in misplaced. */
+                /* Sync final guess counts for the end-game display. */
                 peer_guess_count = packet.payload.game.exact;
                 local_guess_count = packet.payload.game.misplaced;
                 state = HW05_STATE_GAME_OVER;
@@ -1113,10 +1177,12 @@ void task_hw05_system_control(void *pvParameters)
             }
         }
 
+        /* Handle SW1: Confirm/Enter/Next action depending on state. */
         if((events & ECE353_EVENT_SW1_PRESSED) != 0U)
         {
             if((state == HW05_STATE_SELECT_CIPHER) && (entry_count == HW05_GAME_DIGIT_COUNT))
             {
+                /* Finalize local cipher choice and signal readiness to peer. */
                 (void)hw05_copy_digits(local_cipher, entry_digits);
                 (void)ipc_send_game_ready(tx_sequence++, ready_payload);
                 local_ready_sent = true;
@@ -1141,6 +1207,7 @@ void task_hw05_system_control(void *pvParameters)
             }
             else if((state == HW05_STATE_ACTIVE_BUILD_GUESS) && (entry_count == HW05_GAME_DIGIT_COUNT))
             {
+                /* Submit our current guess to the peer for evaluation. */
                 local_guess_count++;
                 hw05_copy_digits(last_guess_digits, entry_digits);
 
@@ -1156,6 +1223,7 @@ void task_hw05_system_control(void *pvParameters)
             }
             else if(state == HW05_STATE_ACTIVE_VIEW_FEEDBACK)
             {
+                /* User acknowledged feedback. End our turn and wait for peer's move. */
                 (void)ipc_send_game_turn_end_ack(tx_sequence++);
                 (void)ipc_wait_for_ack(250U);
 
@@ -1230,6 +1298,7 @@ void task_hw05_system_control(void *pvParameters)
             ui_dirty = true;
         }
 
+        /* Handle Touch Input for digit selection. */
         if((state == HW05_STATE_SELECT_CIPHER) || (state == HW05_STATE_ACTIVE_BUILD_GUESS))
         {
             uint16_t touch_x = 0U;
@@ -1237,8 +1306,10 @@ void task_hw05_system_control(void *pvParameters)
             uint8_t digit = 0U;
             bool touch_detected = false;
 
+            /* Check if the user is currently touching a digit on the palette. */
             touch_detected = hw05_read_touch(&touch_x, &touch_y) && hw05_touch_to_digit(touch_x, touch_y, &digit);
 
+            /* Debounce touch using the latched state; only register a digit once per press. */
             if((entry_count < HW05_GAME_DIGIT_COUNT) && touch_detected && !touch_latched)
             {
                 entry_digits[entry_count] = digit;
@@ -1258,6 +1329,11 @@ void task_hw05_system_control(void *pvParameters)
             touch_latched = false;
         }
 
+        /* 
+         * UI Rendering Phase:
+         * If any state change occurred that requires a screen update, 
+         * composite and send the new LCD frame. 
+         */
         if(ui_dirty)
         {
             const uint8_t *render_digits = entry_digits;
@@ -1326,14 +1402,20 @@ void task_hw05_system_control(void *pvParameters)
 /*****************************************************************************/
 /* Application Code                                                          */
 /*****************************************************************************/
+
 void app_main(void)
 {
+    /* Create the global event group used for system-wide RTOS notifications. */
     ECE353_RTOS_Events = xEventGroupCreate();
     if(ECE353_RTOS_Events == NULL)
     {
         hw05_die("Failed to create RTOS event group!");
     }
 
+    /* 
+     * Initialize Mutexes/Semaphores for shared hardware resources. 
+     * I2C and SPI are used by multiple tasks and require protection.
+     */
     I2C_Monarch_Semaphore = xSemaphoreCreateBinary();
     if(I2C_Monarch_Semaphore == NULL)
     {
@@ -1348,6 +1430,10 @@ void app_main(void)
     }
     xSemaphoreGive(SPI_Monarch_Semaphore);
 
+    /* 
+     * Initialize Queues for Task-to-Task communication. 
+     * These queues handle request/response patterns for sensors and UI.
+     */
     xQueue_Request_LCD = xQueueCreate(10, sizeof(lcd_msg_request_t));
     if(xQueue_Request_LCD == NULL)
     {
@@ -1372,6 +1458,7 @@ void app_main(void)
         hw05_die("Failed to create light sensor response queue!");
     }
 
+    /* Initialize System Tasks and their associated hardware resources. */
     if(!task_console_init())
     {
         hw05_die("Console task initialization failed!");
@@ -1407,6 +1494,7 @@ void app_main(void)
         hw05_die("IPC task initialization failed!");
     }
 
+    /* Create the primary Game Logic and System Control task. */
     if(xTaskCreate(
         task_hw05_system_control,
         "HW05 System Control",
@@ -1418,6 +1506,7 @@ void app_main(void)
         hw05_die("System control task creation failed!");
     }
 
+    /* Start the FreeRTOS scheduler; control is handed over to the tasks. */
     vTaskStartScheduler();
 
     while(1)

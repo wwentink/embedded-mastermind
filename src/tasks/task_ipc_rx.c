@@ -57,6 +57,20 @@ void task_ipc_rx(void *param)
             switch(IPC_Rx_Consume_Buffer->cmd)
             {
                 case IPC_CMD_DISCOVERY:
+                    /*
+                     * Loopback echo guard: when no peer is connected, some USB-UART
+                     * bridges reflect the TX bytes back onto RX.  If the received
+                     * sequence number matches our own last-transmitted sequence, this
+                     * packet is our own discovery echoed back — discard it silently.
+                     * Sending an ACK for it would cause that ACK to be echoed too,
+                     * which would satisfy ipc_wait_for_ack() and trigger a false sync.
+                     */
+                    if(IPC_Rx_Consume_Buffer->sequence_num == IPC_Last_Tx_Sequence)
+                    {
+                        printf("Ignoring echoed DISCOVERY (loopback detected, seq=%u)\n\r",
+                               (unsigned int)IPC_Rx_Consume_Buffer->sequence_num);
+                        break;
+                    }
                     printf("Discovery message received from other board!\n\r");
                     xEventGroupSetBits(ECE353_RTOS_Events, ECE353_RTOS_EVENTS_IPC_DISCOVERY_RX);
                     ipc_send_ack(IPC_Rx_Consume_Buffer->sequence_num);
