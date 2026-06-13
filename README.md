@@ -2,6 +2,10 @@
 
 An implementation of the classic Mastermind board game built on an Infineon PSoC6 MCU using FreeRTOS.
 
+Done as apart of UW-Madison's ECE 353.
+
+Authors: Will Wentink and Joe Krachey
+
 ## Features
 
 - **FreeRTOS Multitasking:** Runs a priority-based multitasking system dividing work into isolated tasks for sensors, actuators, and communication.
