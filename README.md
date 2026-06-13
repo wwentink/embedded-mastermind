@@ -59,6 +59,6 @@ Game states are synchronized over the serial UART link using structured message 
 
 ## Environment & Build Tools
 
-- **Microcontroller:** Infineon PSoC™ Control MCU (ARM Cortex-M33 core).
-- **Development Toolchain:** ModusToolbox™ v3.3+, GNU Arm Embedded Toolchain (`GCC_ARM`).
+- **Microcontroller:** Infineon PSoC6 MCU (ARM Cortex-M33 core).
+- **Development Toolchain:** ModusToolbox v3.3, GNU Arm Embedded Toolchain (`GCC_ARM`).
 - **Language:** C
